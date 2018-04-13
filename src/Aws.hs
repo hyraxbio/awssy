@@ -155,8 +155,9 @@ exec' bin cwd args = do
 
 fetchInstances :: IO [Ec2Instance]
 fetchInstances = do
-  --(x, _o, err) <- execWait "sh" Nothing ["-c", "aws ec2 describe-instances > aws.js"]
-  let (x, err) = (Ex.ExitSuccess, "")
+  void $ execWait' "sh" Nothing ["-c", "echo 'Fetching AWS data'; rm -f aws.js | true"]
+  (x, _o, err) <- execWait "sh" Nothing ["-c", "aws ec2 describe-instances > aws.js"]
+  -- let (x, err) = (Ex.ExitSuccess, "")
 
   case x of
     Ex.ExitSuccess -> do

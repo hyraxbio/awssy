@@ -36,7 +36,7 @@ import qualified Graphics.Vty.Input.Events as K
 import qualified Aws as A
 
 version :: Text
-version = "0.0.1.3"
+version = "0.0.1.4"
 
 data Event = EventUpdate
 
@@ -261,7 +261,7 @@ drawUI st =
       )
 
     settingsForwardList =
-      BL.renderList (\_ (l, rh, rp) -> B.txt $ show l <> " -> " <> rh <> ":" <> show rp) (BF.focusGetCurrent (st ^. uiFocus) == Just NameForwardsList) (st ^. uiForwards)
+      BL.renderList (\_ (l, rh, rp) -> B.txt $ show l <> " <- " <> rh <> ":" <> show rp) (BF.focusGetCurrent (st ^. uiFocus) == Just NameForwardsList) (st ^. uiForwards)
 
     errorAdd =
       B.withAttr "messageError" $ B.txt $ st ^. uiAddError
