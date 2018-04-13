@@ -8,11 +8,16 @@ module Ui where
 import           Protolude
 import           Control.Lens (_Just, (%~), (^.), (.~))
 import           Control.Lens.TH (makeLenses)
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import qualified Data.Text as Txt
 import qualified Data.Text.Encoding as TxtE
+import qualified Data.Aeson as Ae
 import qualified Data.Vector as Vec
 import qualified Data.Default.Class as Def
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import qualified System.Directory as Dir
 import qualified System.Environment as Env
 import qualified Network.HTTP.Req as R
 
@@ -31,7 +36,7 @@ import qualified Graphics.Vty.Input.Events as K
 import qualified Aws as A
 
 version :: Text
-version = "0.0.1.2"
+version = "0.0.1.3"
 
 data Event = EventUpdate
 
@@ -69,7 +74,7 @@ app = B.App { B.appDraw = drawUI
 
 runUi :: IO ()
 runUi = do
-  r <- A.fetchInstances
+  r <- applySettings =<< A.fetchInstances
   ip <- getIp
 
   args <- Env.getArgs
@@ -106,7 +111,9 @@ handleEvent st ev =
     (B.VtyEvent ve@(V.EvKey k ms)) ->
       case (k, ms) of
         -- Escape quits the app, no matter what control has focus
-        (K.KEsc, []) -> B.halt st
+        (K.KEsc, []) -> do
+          liftIO $ saveSettings st
+          B.halt st
 
         _ ->
           -- How to interpret the key press depends on which control is focused
@@ -122,7 +129,9 @@ handleEvent st ev =
                     Just selected ->
                       case A.ec2SecurityGroup selected of
                         Nothing -> B.continue st
-                        Just (_, sg) -> B.suspendAndResume $ startSsh (st ^. uiPem) (st ^. uiIp) sg selected $> st
+                        Just (_, sg) -> B.suspendAndResume $  saveSettings st
+                                                           >> startSsh (st ^. uiPem) (st ^. uiIp) sg selected
+                                                           >> pure st
 
                 _ -> do
                   r <- BL.handleListEventVi BL.handleListEvent ve $ st ^. uiInstances
@@ -191,6 +200,11 @@ handleEvent st ev =
           & uiEditForwardLocalPort .~ BE.editor NameForwardLocalPort (Just 1) ""
           & uiEditForwardRemotePort .~ BE.editor NameForwardRemotePort (Just 1) ""
           & uiEditForwardRemoteHost .~ BE.editor NameForwardRemoteHost (Just 1) "localhost"
+
+    saveSettings st' = do
+      let settings = Vec.toList $ (\e -> (A.ec2Name e, A.ec2PortForwards e)) <$> st' ^. (uiInstances . BL.listElementsL)
+      let j = Ae.encode . Map.fromList $ settings
+      BS.writeFile "settings.js" $ BSL.toStrict j
 
 
 -- | Draw the UI
@@ -374,3 +388,22 @@ getIp = do
     pure $ R.responseBody r
 
   pure . TxtE.decodeUtf8 . BSL.toStrict $ ip
+
+
+applySettings :: [A.Ec2Instance] -> IO [A.Ec2Instance]
+applySettings es = 
+  Dir.doesFileExist "settings.js" >>= \case
+    False -> pure es
+    True -> do
+      j <- BSL.fromStrict <$> BS.readFile "settings.js"
+      case Ae.eitherDecode j :: Either [Char] (Map Text [(Int, Text, Int)]) of
+        Left _ -> pure es
+        Right ss -> pure $ updateEc2 ss <$> es
+
+  where
+    updateEc2 ss e =
+      case Map.lookup (A.ec2Name e) ss of
+        Nothing -> e
+        Just s -> e { A.ec2PortForwards = s }
+          
+ 
