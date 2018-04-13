@@ -19,23 +19,24 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified System.IO as IO
 import qualified System.Exit as Ex
 import qualified System.Process as Proc
-import           Control.Lens ((^.), (.~), (%~))
+import           Control.Lens ((^.))
 import           Control.Lens.TH (makeLenses)
 import           Control.Exception.Safe (throwString)
 
-data Ec2Instance = Ec2Instance { ec2Name :: Text
-                               , ec2ImageId :: Text
-                               , ec2InstanceId :: Text
-                               , ec2InstanceType :: Text
-                               , ec2LaunchTime :: Text
-                               , ec2SubnetId :: Text
-                               , ec2VpcId :: Text
-                               , ec2Architecture :: Text
-                               , ec2PublicDnsName :: Text
-                               , ec2PublicIpAddress :: Text
-                               , ec2Placement :: Text
-                               , ec2State :: Text
-                               , ec2SecurityGroup :: Maybe (Text, Text)
+data Ec2Instance = Ec2Instance { ec2Name :: !Text
+                               , ec2ImageId :: !Text
+                               , ec2InstanceId :: !Text
+                               , ec2InstanceType :: !Text
+                               , ec2LaunchTime :: !Text
+                               , ec2SubnetId :: !Text
+                               , ec2VpcId :: !Text
+                               , ec2Architecture :: !Text
+                               , ec2PublicDnsName :: !Text
+                               , ec2PublicIpAddress :: !Text
+                               , ec2Placement :: !Text
+                               , ec2State :: !Text
+                               , ec2SecurityGroup :: !(Maybe (Text, Text))
+                               , ec2PortForwards :: ![(Int, Text, Int)]
                                } deriving (Show)
 
 
@@ -45,33 +46,33 @@ data Describe = Describe { _dReservations :: [Reservation]
 data Reservation = Reservation { _rInstances :: [Instance]
                                } deriving (Generic)
 
-data Instance = Instance { _iImageId :: Text
-                         , _iInstanceId :: Text
-                         , _iInstanceType :: Text
-                         , _iLaunchTime :: Text
-                         , _iSubnetId :: Text
-                         , _iVpcId :: Text
-                         , _iArchitecture :: Text
-                         , _iPublicDnsName :: Text
-                         , _iPublicIpAddress :: Maybe Text
-                         , _iPlacement :: Placement
-                         , _iState :: InstanceState
-                         , _iTags :: [Tag]
-                         , _iSecurityGroups :: [SecurityGroup]
+data Instance = Instance { _iImageId :: !Text
+                         , _iInstanceId :: !Text
+                         , _iInstanceType :: !Text
+                         , _iLaunchTime :: !Text
+                         , _iSubnetId :: !Text
+                         , _iVpcId :: !Text
+                         , _iArchitecture :: !Text
+                         , _iPublicDnsName :: !Text
+                         , _iPublicIpAddress :: !(Maybe Text)
+                         , _iPlacement :: !Placement
+                         , _iState :: !InstanceState
+                         , _iTags :: ![Tag]
+                         , _iSecurityGroups :: ![SecurityGroup]
                          } deriving (Generic)
 
-data Placement = Placement { _pAvailabilityZone :: Text
+data Placement = Placement { _pAvailabilityZone :: !Text
                            } deriving (Generic)
 
-data InstanceState = InstanceState { _sName :: Text
+data InstanceState = InstanceState { _sName :: !Text
                                    } deriving (Generic)
 
-data Tag = Tag { _tKey :: Text
-               , _tValue :: Text
+data Tag = Tag { _tKey :: !Text
+               , _tValue :: !Text
                } deriving (Generic)
 
-data SecurityGroup = SecurityGroup { _sGroupName :: Text
-                                   , _sGroupId :: Text
+data SecurityGroup = SecurityGroup { _sGroupName :: !Text
+                                   , _sGroupId :: !Text
                                    } deriving (Generic)
 
 makeLenses ''Describe
@@ -187,6 +188,7 @@ fetchInstances = do
                   , ec2Placement = i ^. iPlacement ^. pAvailabilityZone
                   , ec2State = i ^. iState ^. sName
                   , ec2SecurityGroup = getSecGroup $ i ^. iSecurityGroups
+                  , ec2PortForwards = []
                   }
 
     getTag n ts =
