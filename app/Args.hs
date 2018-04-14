@@ -24,7 +24,7 @@ data Opts = Opts { key :: Text
             deriving (A.Data, Typeable)
 
 version :: Text
-version = "0.0.3.1"
+version = "0.1.3.2"
 
 runArgs :: (FilePath -> IO ()) -> IO ()
 runArgs run = do

@@ -322,7 +322,7 @@ applyUpdate st0 es = do
 -- | Draw the UI
 drawUI :: UIState -> [B.Widget Name]
 drawUI st =
-  [B.padAll 1 contentBlock] 
+  [B.padTop (B.Pad 1) $ B.padLeft (B.Pad 1) $ B.padRight (B.Pad 1) $ contentBlock] 
 
   where
     contentBlock =
@@ -457,7 +457,9 @@ drawUI st =
       (B.withAttr (BA.attrName . Txt.unpack $ "status_" <> A.ec2State e) $ txt status) <+> (B.txt $ A.ec2Name e)
 
     bottomBar =
-      B.vLimit 1 $ bottomBarLeft <+> B.fill ' ' <+> bottomBarRight
+      (B.vLimit 1 $ bottomBarLeft <+> B.fill ' ' <+> bottomBarRight)
+      <=>
+      (B.vLimit 1 $ B.fill ' ' <+> (dullTxt $ st ^. uiPem))
 
     bottomBarLeft =
       dullTxt $ "awssy " <> Args.version
