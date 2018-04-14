@@ -1,5 +1,3 @@
 .stack-work/
 *#*.hs#
 .vscode/*
-aws.js
-settings.js

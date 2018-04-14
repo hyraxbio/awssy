@@ -18,6 +18,7 @@ import qualified Data.Vector as Vec
 import qualified Data.Default.Class as Def
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import           System.FilePath ((</>))
 import qualified System.Directory as Dir
 import qualified System.Environment as Env
 import qualified Network.HTTP.Req as R
@@ -37,7 +38,7 @@ import qualified Graphics.Vty.Input.Events as K
 import qualified Aws as A
 
 version :: Text
-version = "0.0.2.4"
+version = "0.0.2.5"
 
 spinner :: [Text]
 spinner = ["|", "/", "-", "\\"]
@@ -279,7 +280,8 @@ handleEvent st ev =
     saveSettings st' = do
       let settings = Vec.toList $ (\e -> (A.ec2Name e, A.ec2PortForwards e)) <$> st' ^. (uiInstances . BL.listElementsL)
       let j = Ae.encode . Map.fromList $ settings
-      BS.writeFile "settings.js" $ BSL.toStrict j
+      settingsPath <- getSettingsFilePath
+      BS.writeFile settingsPath $ BSL.toStrict j
 
 
 applyUpdate :: UIState -> [A.Ec2Instance] -> UIState
@@ -598,11 +600,13 @@ getIp = do
 
 
 applySettings :: [A.Ec2Instance] -> IO [A.Ec2Instance]
-applySettings es = 
-  Dir.doesFileExist "settings.js" >>= \case
+applySettings es = do
+  settingsPath <- getSettingsFilePath
+  
+  Dir.doesFileExist settingsPath >>= \case
     False -> pure es
     True -> do
-      j <- BSL.fromStrict <$> BS.readFile "settings.js"
+      j <- BSL.fromStrict <$> BS.readFile settingsPath
       case Ae.eitherDecode j :: Either [Char] (Map Text [(Int, Text, Int)]) of
         Left _ -> pure es
         Right ss -> pure $ updateEc2 ss <$> es
@@ -620,3 +624,14 @@ startInstance st inst = do
   void $ A.execWait "sh" Nothing Nothing ["-c", "aws ec2 start-instances --instance-ids " <> id]
   void $ A.execWait "sh" Nothing Nothing ["-c", "aws ec2 wait instance-status-ok --instance-ids " <> id]
   (st ^. uiFnUpdate) (Just $ A.ec2Name inst)
+
+getSettingsFilePath :: IO FilePath
+getSettingsFilePath = do
+  p <- getSettingsRootPath
+  pure $ p </> "settings.js"
+
+getSettingsRootPath :: IO FilePath
+getSettingsRootPath = do
+  p <- Dir.getXdgDirectory Dir.XdgData "awssy"
+  Dir.createDirectoryIfMissing True p
+  pure p
