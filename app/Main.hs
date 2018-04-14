@@ -360,13 +360,13 @@ drawUI st =
         titleTxt "+"
       )
       <+>
-      ( (titleTxt ": " <+> B.txt "Start ssh session (started instances only)")
+      ( (titleTxt ": " <+> dullTxt "Start ssh session (started instances only)")
         <=>
-        (titleTxt ": " <+> B.txt "Refresh from AWS")
+        (titleTxt ": " <+> dullTxt "Refresh from AWS")
         <=>
-        (titleTxt ": " <+> B.txt "Start shell (see echo for variables)")
+        (titleTxt ": " <+> dullTxt "Start shell (see echo for variables)")
         <=>
-        (titleTxt ": " <+> B.txt "Start an instance")
+        (titleTxt ": " <+> dullTxt "Start an instance")
        )
       )
 
@@ -421,23 +421,23 @@ drawUI st =
         titleTxt "Security group"
       )
       <+>
-      ( (titleTxt ": " <+> (txt $ maybe "" A.ec2Name (st ^. uiSelectedInstance)))
+      ( (titleTxt ": " <+> (dullTxt $ maybe "" A.ec2Name (st ^. uiSelectedInstance)))
         <=>
         (titleTxt ": " <+> (statusTxt $ maybe "" A.ec2State (st ^. uiSelectedInstance)))
         <=>
-        (titleTxt ": " <+> (txt $ maybe "" A.ec2PublicDnsName (st ^. uiSelectedInstance)))
+        (titleTxt ": " <+> (dullTxt $ maybe "" A.ec2PublicDnsName (st ^. uiSelectedInstance)))
         <=>
-        (titleTxt ": " <+> (txt $ maybe "" A.ec2PublicIpAddress (st ^. uiSelectedInstance)))
+        (titleTxt ": " <+> (dullTxt $ maybe "" A.ec2PublicIpAddress (st ^. uiSelectedInstance)))
         <=>
-        (titleTxt ": " <+> (txt $ maybe "" A.ec2InstanceType (st ^. uiSelectedInstance)))
+        (titleTxt ": " <+> (dullTxt $ maybe "" A.ec2InstanceType (st ^. uiSelectedInstance)))
         <=>
-        (titleTxt ": " <+> (txt $ maybe "" A.ec2Placement (st ^. uiSelectedInstance)))
+        (titleTxt ": " <+> (dullTxt $ maybe "" A.ec2Placement (st ^. uiSelectedInstance)))
         <=>
-        (titleTxt ": " <+> (txt $ maybe "" A.ec2LaunchTime (st ^. uiSelectedInstance)))
+        (titleTxt ": " <+> (dullTxt $ maybe "" A.ec2LaunchTime (st ^. uiSelectedInstance)))
         <=>
-        (titleTxt ": " <+> (txt $ maybe "" A.ec2InstanceId (st ^. uiSelectedInstance)))
+        (titleTxt ": " <+> (dullTxt $ maybe "" A.ec2InstanceId (st ^. uiSelectedInstance)))
         <=>
-        (titleTxt ": " <+> (txt $ maybe "" (maybe "" snd . A.ec2SecurityGroup) (st ^. uiSelectedInstance)))
+        (titleTxt ": " <+> (dullTxt $ maybe "" (maybe "" snd . A.ec2SecurityGroup) (st ^. uiSelectedInstance)))
       )
       <+>
       B.fill ' '
@@ -462,13 +462,16 @@ drawUI st =
       B.vLimit 1 $ bottomBarLeft <+> B.fill ' ' <+> bottomBarRight
 
     bottomBarLeft =
-      B.txt $ "awssy " <> version
+      dullTxt $ "awssy " <> version
 
     bottomBarRight =
       B.withAttr "messageInfo" $ B.txt $ st ^. uiStatus
       
     titleTxt t =
       B.withAttr "titleText" $ txt t
+
+    dullTxt t =
+      B.withAttr "normalText" $ txt t
 
     txt t =
       B.txt $ if Txt.null t then " " else t
@@ -511,6 +514,7 @@ theMap = BA.attrMap V.defAttr [ (BE.editAttr               , V.black `B.on` V.cy
                               , ("messageWarn"             , B.fg V.brightYellow)
                               , ("messageInfo"             , B.fg V.cyan)
                               , ("titleText"               , B.fg V.green)
+                              , ("normalText"              , B.fg V.white)
                               , ("status_stopped"          , B.fg V.brightRed)
                               , ("status_running"          , B.fg V.brightGreen)
                               ]
