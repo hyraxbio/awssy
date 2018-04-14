@@ -62,6 +62,7 @@ data UIState = UIState { _uiFocus :: !(BF.FocusRing Name)
                        , _uiPem :: Text
                        , _uiAddError :: Text
                        , _uiStatus :: Text
+                       , _uiFnUpdate :: IO ()
                        }
 
 makeLenses ''UIState
@@ -85,12 +86,11 @@ main = do
 
   chan <- BCh.newBChan 5
 
-  void . forkIO $ forever $ do
-    BCh.writeBChan chan $ EventStatus "fetching from aws..."
-    is <- A.fetchInstances
-    BCh.writeBChan chan $ EventUpdate is
-    BCh.writeBChan chan $ EventStatus ""
-    threadDelay $ 1000000 * 60 * 5
+  let updateFromAws = do
+        BCh.writeBChan chan $ EventStatus "fetching from aws..."
+        is <- A.fetchInstances
+        BCh.writeBChan chan $ EventUpdate is
+        BCh.writeBChan chan $ EventStatus ""
 
   -- Construct the initial state values
   let st1 = UIState { _uiFocus = BF.focusRing [NameInstances, NameForwardsList, NameForwardLocalPort, NameForwardRemoteHost, NameForwardRemotePort, NameButtonAdd]
@@ -104,10 +104,15 @@ main = do
                     , _uiPem = Txt.pack pem
                     , _uiAddError = ""
                     , _uiStatus = ""
+                    , _uiFnUpdate = updateFromAws
                     }
 
   let st2 = st1 & uiSelectedInstance .~ (snd <$> BL.listSelectedElement (st1 ^. uiInstances))
   let st3 = st2 & uiForwards .~ BL.list NameForwardsList (Vec.fromList $ maybe [] (\(_, e) -> A.ec2PortForwards e) (BL.listSelectedElement $ st2 ^. uiInstances)) 1
+
+  void . forkIO $ forever $ do
+    updateFromAws
+    threadDelay $ 1000000 * 60 * 5
           
   -- Run brick
   void $ B.customMain (V.mkVty V.defaultConfig) (Just chan) app st3
@@ -125,6 +130,10 @@ handleEvent st ev =
         (K.KEsc, []) -> do
           liftIO $ saveSettings st
           B.halt st
+
+        (K.KFun 5, []) -> do
+          liftIO $ void . forkIO $ st ^. uiFnUpdate
+          B.continue st
 
         _ ->
           -- How to interpret the key press depends on which control is focused
@@ -309,10 +318,14 @@ drawUI st =
       (B.padAll 1 $
       ( titleTxt "Enter"
         <=>
+        titleTxt "F5"
+        <=>
         titleTxt "s"
       )
       <+>
       ( (titleTxt ": " <+> B.txt "Start ssh")
+        <=>
+        (titleTxt ": " <+> B.txt "Refresh from AWS")
         <=>
         (titleTxt ": " <+> B.txt "Start shell (see echo for variables)")
        )
