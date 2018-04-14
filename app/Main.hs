@@ -384,7 +384,7 @@ drawUI st =
       <+>
       ( (titleTxt ": " <+> (txt $ maybe "" A.ec2Name (st ^. uiSelectedInstance)))
         <=>
-        (titleTxt ": " <+> (txt $ maybe "" A.ec2State (st ^. uiSelectedInstance)))
+        (titleTxt ": " <+> (statusTxt $ maybe "" A.ec2State (st ^. uiSelectedInstance)))
         <=>
         (titleTxt ": " <+> (txt $ maybe "" A.ec2PublicDnsName (st ^. uiSelectedInstance)))
         <=>
@@ -404,7 +404,15 @@ drawUI st =
       B.fill ' '
 
     instancesList =
-      BL.renderList (\_ e -> B.txt $ A.ec2Name e) (BF.focusGetCurrent (st ^. uiFocus) == Just NameInstances) (st ^. uiInstances)
+      BL.renderList (\_ e -> instanceName e) (BF.focusGetCurrent (st ^. uiFocus) == Just NameInstances) (st ^. uiInstances)
+
+    instanceName e =
+      let status = case A.ec2State e of
+                     "stopped" -> "- "
+                     "running" -> "+ "
+                     _ -> "? "
+      in
+      (B.withAttr (BA.attrName . Txt.unpack $ "status_" <> A.ec2State e) $ txt $ status) <+> (B.txt $ A.ec2Name e)
 
     bottomBar =
       B.vLimit 1 $ bottomBarLeft <+> B.fill ' ' <+> bottomBarRight
@@ -420,6 +428,9 @@ drawUI st =
 
     txt t =
       B.txt $ if Txt.null t then " " else t
+  
+    statusTxt t =
+      B.withAttr (BA.attrName $ "status_" <> Txt.unpack t) $ txt t
   
     --htitle t =
     --  B.hLimit 20 $
@@ -456,6 +467,8 @@ theMap = BA.attrMap V.defAttr [ (BE.editAttr               , V.black `B.on` V.cy
                               , ("messageWarn"             , B.fg V.brightYellow)
                               , ("messageInfo"             , B.fg V.cyan)
                               , ("titleText"               , B.fg V.green)
+                              , ("status_stopped"          , B.fg V.brightRed)
+                              , ("status_running"          , B.fg V.brightGreen)
                               ]
 
 exec :: [Text] -> IO ExitCode
