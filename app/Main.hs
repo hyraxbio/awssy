@@ -170,9 +170,12 @@ handleEvent st ev =
                     Just selected ->
                       case A.ec2SecurityGroup selected of
                         Nothing -> B.continue st
-                        Just (_, sg) -> B.suspendAndResume $  saveSettings st
-                                                           >> startSsh (st ^. uiPem) (st ^. uiIp) sg selected
-                                                           >> pure st
+                        Just (_, sg) ->
+                          if Txt.null $ A.ec2PublicIpAddress selected
+                          then B.continue st
+                          else B.suspendAndResume $  saveSettings st
+                                                  >> startSsh (st ^. uiPem) (st ^. uiIp) sg selected
+                                                  >> pure st
 
 
                 K.KChar 's' ->
