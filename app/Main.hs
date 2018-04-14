@@ -6,10 +6,11 @@
 module Main where
 
 import           Protolude
-import           Control.Lens (_Just, (%~), (^.), (.~))
+import           Control.Lens (_Just, (%~), (^.), (.~), (?~))
 import           Control.Lens.TH (makeLenses)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import qualified Data.List as Lst
 import qualified Data.Text as Txt
 import qualified Data.Text.Encoding as TxtE
 import qualified Data.Aeson as Ae
@@ -84,12 +85,12 @@ main = do
 
   chan <- BCh.newBChan 5
 
-  void . forkIO $ {- forever $ -} do
+  void . forkIO $ forever $ do
     BCh.writeBChan chan $ EventStatus "fetching from aws..."
     is <- A.fetchInstances
     BCh.writeBChan chan $ EventUpdate is
     BCh.writeBChan chan $ EventStatus ""
-    threadDelay $ 1000000 -- * 60 * 5
+    threadDelay $ 1000000 * 60 * 5
 
   -- Construct the initial state values
   let st1 = UIState { _uiFocus = BF.focusRing [NameInstances, NameForwardsList, NameForwardLocalPort, NameForwardRemoteHost, NameForwardRemotePort, NameButtonAdd]
@@ -106,9 +107,9 @@ main = do
                     }
 
   let st2 = st1 & uiSelectedInstance .~ (snd <$> BL.listSelectedElement (st1 ^. uiInstances))
-  let st3 = st2 &  uiForwards .~ BL.list NameForwardsList (Vec.fromList $ maybe [] (\(_, e) -> A.ec2PortForwards e) (BL.listSelectedElement $ st2 ^. uiInstances)) 1
+  let st3 = st2 & uiForwards .~ BL.list NameForwardsList (Vec.fromList $ maybe [] (\(_, e) -> A.ec2PortForwards e) (BL.listSelectedElement $ st2 ^. uiInstances)) 1
           
-  -- And run brick
+  -- Run brick
   void $ B.customMain (V.mkVty V.defaultConfig) (Just chan) app st3
 
 
@@ -192,7 +193,7 @@ handleEvent st ev =
 
     (B.AppEvent (EventUpdate is')) -> do
       is <- liftIO $ applySettings is'
-      B.continue $ st & uiInstances .~ BL.list NameInstances (Vec.fromList is) 1
+      B.continue $ applyUpdate st is
   
     _ -> B.continue st
 
@@ -222,6 +223,48 @@ handleEvent st ev =
       let j = Ae.encode . Map.fromList $ settings
       BS.writeFile "settings.js" $ BSL.toStrict j
 
+
+applyUpdate :: UIState -> [A.Ec2Instance] -> UIState
+applyUpdate st0 es = do
+  let origInstances = Vec.toList $ st0 ^. (uiInstances . BL.listElementsL)
+
+  -- Update instances with info from AWS but keep in-memory port forwards
+  let updatedInstances = foldr (updateInstance origInstances) [] es
+  
+  -- Use the newly updated instances
+  let st1 = st0 & uiInstances .~ BL.list NameInstances (Vec.fromList updatedInstances) 1
+
+  -- Keep current selection
+  let origSelected = st0 ^. uiSelectedInstance
+  let useOldSelection st' = st' & uiSelectedInstance .~ (snd <$> BL.listSelectedElement (st' ^. uiInstances))
+  let st2 = case origSelected of
+              Nothing -> --Nothing was selected, use current
+                useOldSelection st1
+
+              Just oldSel ->
+                -- Try find the old element in the new list
+                case Lst.findIndex (\e -> A.ec2Name e == A.ec2Name oldSel) updatedInstances of
+                  Nothing -> -- Old item not found, use current
+                    useOldSelection st1
+
+                  Just idx -> -- Found
+                    let new = updatedInstances Lst.!! idx in
+                    st1 & uiSelectedInstance ?~ new
+                        & uiInstances %~ BL.listMoveTo idx
+
+  let st3 = st2 & uiForwards .~ BL.list NameForwardsList (Vec.fromList $ maybe [] (\(_, e) -> A.ec2PortForwards e) (BL.listSelectedElement $ st2 ^. uiInstances)) 1
+  st3
+
+  where
+    updateInstance origInstances inst a =
+      --Find the instance being updated
+      case headMay . filter (\i -> A.ec2Name i == A.ec2Name inst) $ origInstances of
+        -- Not updating, just add
+        Nothing -> inst : a
+
+        -- Updating, use in memory forwards
+        Just old -> inst { A.ec2PortForwards = A.ec2PortForwards old } : a
+      
 
 -- | Draw the UI
 drawUI :: UIState -> [B.Widget Name]
