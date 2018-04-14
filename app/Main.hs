@@ -299,11 +299,24 @@ drawUI st =
       (B.vLimit 20 $ block "Detail" detailBlock)
       <=>
       (B.vLimit 20 $ B.padTop (B.Pad 1) $ B.padBottom (B.Pad 1) $ block "Settings" settingsBlock)
+      <=>
+      (B.vLimit 20 $ B.padTop (B.Pad 1) $ B.padBottom (B.Pad 1) $ block "Help" helpBlock)
 
     settingsBlock =
       (B.padAll 1 settingsInner)
-      -- <=>
-      --B.fill ' '
+
+    helpBlock =
+      (B.padAll 1 $
+      ( titleTxt "Enter"
+        <=>
+        titleTxt "s"
+      )
+      <+>
+      ( (titleTxt ": " <+> B.txt "Start ssh")
+        <=>
+        (titleTxt ": " <+> B.txt "Start shell (see echo for variables)")
+       )
+      )
 
     settingsInner =
       (block "Port Forwarding" (B.hLimit 30 $ settingsForwardList))
