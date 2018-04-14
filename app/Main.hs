@@ -38,7 +38,7 @@ import qualified Graphics.Vty.Input.Events as K
 import qualified Aws as A
 
 version :: Text
-version = "0.0.2.5"
+version = "0.0.2.6"
 
 spinner :: [Text]
 spinner = ["|", "/", "-", "\\"]
@@ -87,7 +87,6 @@ app = B.App { B.appDraw = drawUI
 
 main :: IO ()
 main = do
-  r <- applySettings =<< pure [] --A.fetchInstances
   ip <- getIp
 
   args <- Env.getArgs
@@ -108,25 +107,22 @@ main = do
           Just u -> started u
 
   -- Construct the initial state values
-  let st1 = UIState { _uiFocus = BF.focusRing [NameInstances, NameForwardsList, NameForwardLocalPort, NameForwardRemoteHost, NameForwardRemotePort, NameButtonAdd]
-                    , _uiInstances = BL.list NameInstances (Vec.fromList r) 1
-                    , _uiForwards = BL.list NameForwardsList Vec.empty 1
-                    , _uiSelectedInstance = Nothing
-                    , _uiEditForwardLocalPort = BE.editor NameForwardLocalPort (Just 1) ""
-                    , _uiEditForwardRemotePort = BE.editor NameForwardRemotePort (Just 1) ""
-                    , _uiEditForwardRemoteHost = BE.editor NameForwardRemoteHost (Just 1) "localhost"
-                    , _uiIp = ip
-                    , _uiPem = Txt.pack pem
-                    , _uiAddError = ""
-                    , _uiStatus = ""
-                    , _uiStarting = []
-                    , _uiFnUpdate = updateFromAws
-                    , _uiFnStarted = started
-                    , _uiTickCount = 0
-                    }
-
-  let st2 = st1 & uiSelectedInstance .~ (snd <$> BL.listSelectedElement (st1 ^. uiInstances))
-  let st3 = st2 & uiForwards .~ BL.list NameForwardsList (Vec.fromList $ maybe [] (\(_, e) -> A.ec2PortForwards e) (BL.listSelectedElement $ st2 ^. uiInstances)) 1
+  let st = UIState { _uiFocus = BF.focusRing [NameInstances, NameForwardsList, NameForwardLocalPort, NameForwardRemoteHost, NameForwardRemotePort, NameButtonAdd]
+                   , _uiInstances = BL.list NameInstances Vec.empty 1
+                   , _uiForwards = BL.list NameForwardsList Vec.empty 1
+                   , _uiSelectedInstance = Nothing
+                   , _uiEditForwardLocalPort = BE.editor NameForwardLocalPort (Just 1) ""
+                   , _uiEditForwardRemotePort = BE.editor NameForwardRemotePort (Just 1) ""
+                   , _uiEditForwardRemoteHost = BE.editor NameForwardRemoteHost (Just 1) "localhost"
+                   , _uiIp = ip
+                   , _uiPem = Txt.pack pem
+                   , _uiAddError = ""
+                   , _uiStatus = ""
+                   , _uiStarting = []
+                   , _uiFnUpdate = updateFromAws
+                   , _uiFnStarted = started
+                   , _uiTickCount = 0
+                   }
 
   void . forkIO $ forever $ do
     updateFromAws Nothing
@@ -137,7 +133,7 @@ main = do
     BCh.writeBChan chan EventTick
           
   -- Run brick
-  void $ B.customMain (V.mkVty V.defaultConfig) (Just chan) app st3
+  void $ B.customMain (V.mkVty V.defaultConfig) (Just chan) app st
 
 
 handleEvent :: UIState -> B.BrickEvent Name Event -> B.EventM Name (B.Next UIState)
@@ -568,7 +564,6 @@ startShell pem ip sg inst = do
   currentEnv <- Map.fromList <$> ((\(k, v) -> (Txt.pack k, Txt.pack v)) <<$>> Env.getEnvironment)
   let env = Map.toList $ Map.union env' currentEnv
   let sh = Map.findWithDefault "sh" "SHELL" currentEnv
-  print env
 
   startSh ip sg inst $ do
     void $ exec [ "echo ''"
