@@ -37,7 +37,7 @@ import qualified Graphics.Vty.Input.Events as K
 import qualified Aws as A
 
 version :: Text
-version = "0.0.1.5"
+version = "0.0.2.0"
 
 data Event = EventUpdate [A.Ec2Instance]
            | EventStatus Text
@@ -142,6 +142,17 @@ handleEvent st ev =
                         Nothing -> B.continue st
                         Just (_, sg) -> B.suspendAndResume $  saveSettings st
                                                            >> startSsh (st ^. uiPem) (st ^. uiIp) sg selected
+                                                           >> pure st
+
+
+                K.KChar 's' ->
+                  case st ^. uiSelectedInstance of
+                    Nothing -> B.continue st
+                    Just selected ->
+                      case A.ec2SecurityGroup selected of
+                        Nothing -> B.continue st
+                        Just (_, sg) -> B.suspendAndResume $  saveSettings st
+                                                           >> startShell (st ^. uiPem) (st ^. uiIp) sg selected
                                                            >> pure st
 
                 _ -> do
@@ -421,13 +432,16 @@ theMap = BA.attrMap V.defAttr [ (BE.editAttr               , V.black `B.on` V.cy
                               , ("titleText"               , B.fg V.green)
                               ]
 
-startSsh :: Text -> Text -> Text -> A.Ec2Instance -> IO ()
-startSsh pem ip sg inst = 
-  bracket_ auth deauth ssh
+exec :: [Text] -> IO ExitCode
+exec cmds = A.execWait' "sh" Nothing Nothing ["-c", Txt.intercalate "; " cmds]
+
+startSh :: Text -> Text -> A.Ec2Instance -> IO () -> IO ()
+startSh ip sg inst fn = 
+  bracket_ auth deauth fn
 
   where
     auth  =
-      exec [ "echo '### connecting to " <> A.ec2Name inst <> " ###'"
+      exec [ "echo '### " <> A.ec2Name inst <> " ###'"
            , "echo grant access to: " <> ip
            , "echo aws --region eu-west-1 ec2 authorize-security-group-ingress --group-id " <> sg <> " --protocol tcp --port 22 --cidr " <> ip <> "/24"
            , "aws --region eu-west-1 ec2 authorize-security-group-ingress --group-id " <> sg <> " --protocol tcp --port 22 --cidr " <> ip <> "/24"
@@ -439,15 +453,44 @@ startSsh pem ip sg inst =
            , "aws --region eu-west-1 ec2 revoke-security-group-ingress --group-id " <> sg <> " --protocol tcp --port 22 --cidr " <> ip <> "/24"
            ]
 
-    ssh = do
-      let fs = (\(l, h, r) -> "-L " <> show l <> ":" <> h <> ":" <> show r) <$> A.ec2PortForwards inst 
-      let args = Txt.intercalate " " fs
 
-      void $ exec [ "echo ssh -i " <> pem <> " ec2-user@" <> A.ec2PublicIpAddress inst <> " " <> args
-                  , "ssh -i " <> pem <> " ec2-user@" <> A.ec2PublicIpAddress inst <> " " <> args
-                  ]
+startSsh :: Text -> Text -> Text -> A.Ec2Instance -> IO ()
+startSsh pem ip sg inst = 
+  startSh ip sg inst $ do
+    let fs = (\(l, h, r) -> "-L " <> show l <> ":" <> h <> ":" <> show r) <$> A.ec2PortForwards inst 
+    let args = Txt.intercalate " " fs
 
-    exec cmds = A.execWait' "sh" Nothing ["-c", Txt.intercalate "; " cmds]
+    void $ exec [ "echo ssh -i " <> pem <> " ec2-user@" <> A.ec2PublicIpAddress inst <> " " <> args
+                , "ssh -i " <> pem <> " ec2-user@" <> A.ec2PublicIpAddress inst <> " " <> args
+                ]
+
+
+startShell :: Text -> Text -> Text -> A.Ec2Instance -> IO ()
+startShell pem ip sg inst = do
+  let env' = Map.fromList [ ("AWS_H", A.ec2PublicIpAddress inst)
+                          , ("AWS_U", "ec2-user")
+                          , ("AWS_K", pem)
+                          , ("AWS_UH", "ec2-user@" <> A.ec2PublicIpAddress inst)
+                          ]
+
+  currentEnv <- Map.fromList <$> ((\(k, v) -> (Txt.pack k, Txt.pack v)) <<$>> Env.getEnvironment)
+  let env = Map.toList $ Map.union env' currentEnv
+  let sh = Map.findWithDefault "sh" "SHELL" currentEnv
+  print env
+
+  startSh ip sg inst $ do
+    void $ exec [ "echo ''"
+                , "echo 'Shell for: ### " <> A.ec2Name inst <> " ###'"
+                , "echo '  AWS_H: " <> A.ec2PublicIpAddress inst <> "'"
+                , "echo '  AWS_U: ec2-user'"
+                , "echo '  AWS_K: " <> pem <> "'"
+                , "echo '  AWS_UH: ec2-user@" <> A.ec2PublicIpAddress inst <> "'"
+                , "echo '  e.g. scp -i $AWS_K ./README.md $AWS_UH:/home/$AWS_U/README.md'"
+                , "echo ''"
+                ]
+
+    void $ A.execWait' (Txt.unpack sh) Nothing (Just env) []
+
 
 getIp :: IO Text
 getIp = do

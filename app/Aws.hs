@@ -113,19 +113,19 @@ renField drp toLower =
     mkLower t = Txt.toLower (Txt.take 1 t) <> Txt.drop 1 t
 
   
-execWait :: FilePath -> Maybe FilePath -> [Text] -> IO (ExitCode, Text, Text)
-execWait bin cwd args = do
-  (outp, errp, phandle) <- exec bin cwd args
+execWait :: FilePath -> Maybe FilePath -> Maybe [(Text, Text)] -> [Text] -> IO (ExitCode, Text, Text)
+execWait bin cwd env args = do
+  (outp, errp, phandle) <- exec bin cwd env args
   exitCode <- Proc.waitForProcess phandle
   stdout' <- IO.hGetContents outp
   stderr' <- IO.hGetContents errp
   pure (exitCode, Txt.pack stdout', Txt.pack stderr')
   
 
-exec :: FilePath -> Maybe FilePath -> [Text] -> IO (Handle, Handle, Proc.ProcessHandle)
-exec bin cwd args = do
+exec :: FilePath -> Maybe FilePath -> Maybe [(Text, Text)] -> [Text] -> IO (Handle, Handle, Proc.ProcessHandle)
+exec bin cwd env args = do
   let p' = Proc.proc bin $ Txt.unpack <$> args
-  let p = p' { Proc.env = Nothing
+  let p = p' { Proc.env = (\(k, v) -> (Txt.unpack k, Txt.unpack v)) <<$>> env
              , Proc.std_out = Proc.CreatePipe
              , Proc.std_err = Proc.CreatePipe
              , Proc.cwd = cwd
@@ -136,16 +136,16 @@ exec bin cwd args = do
 
 
 
-execWait' :: FilePath -> Maybe FilePath -> [Text] -> IO ExitCode
-execWait' bin cwd args = do
-  phandle <- exec' bin cwd args
+execWait' :: FilePath -> Maybe FilePath -> Maybe [(Text, Text)] -> [Text] -> IO ExitCode
+execWait' bin cwd env args = do
+  phandle <- exec' bin cwd env args
   Proc.waitForProcess phandle
   
 
-exec' :: FilePath -> Maybe FilePath -> [Text] -> IO Proc.ProcessHandle
-exec' bin cwd args = do
+exec' :: FilePath -> Maybe FilePath -> Maybe [(Text, Text)] -> [Text] -> IO Proc.ProcessHandle
+exec' bin cwd env args = do
   let p' = Proc.proc bin $ Txt.unpack <$> args
-  let p = p' { Proc.env = Nothing
+  let p = p' { Proc.env = (\(k, v) -> (Txt.unpack k, Txt.unpack v)) <<$>> env
              , Proc.cwd = cwd
              }
 
@@ -156,7 +156,7 @@ exec' bin cwd args = do
 
 fetchInstances :: IO [Ec2Instance]
 fetchInstances = do
-  (x, o, err) <- execWait "sh" Nothing ["-c", "r=$(aws ec2 describe-instances); echo $r"]
+  (x, o, err) <- execWait "sh" Nothing Nothing ["-c", "r=$(aws ec2 describe-instances); echo $r"]
   let j = BSL.fromStrict . TxtE.encodeUtf8 $ o
 
   case x of
