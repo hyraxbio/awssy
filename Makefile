@@ -24,10 +24,10 @@ build-dirty:
 	$(stack) build --ghc-options=-fforce-recomp $(package)
 
 run:
-	$(stack) build --fast && $(stack) exec -- $(package)-exe
+	$(stack) build --fast && $(stack) exec -- $(package)
 
 ghci:
-	$(stack) ghci $(package):lib
+	$(stack) ghci $(package):exe
 
 test:
 	$(stack) test $(package)
@@ -39,10 +39,10 @@ bench:
 	$(stack) bench $(package)
 
 ghcid:
-	$(stack) exec -- ghcid -c "stack ghci $(package):lib --ghci-options='-fobject-code -fno-warn-unused-do-bind' --main-is $(package):exe:$(package)-exe"
+	$(stack) exec -- ghcid -c "stack ghci $(package):exe --ghci-options='-fobject-code -fno-warn-unused-do-bind' --main-is $(package):exe:$(package)"
 
 ghcid-run:
-	$(stack) exec -- ghcid -c "stack ghci $(package):lib --ghci-options='-fobject-code -fno-warn-unused-do-bind' --main-is $(package):exe:$(package)-exe" --test=":main debug" -W
+	$(stack) exec -- ghcid -c "stack ghci $(package):exe --ghci-options='-fobject-code -fno-warn-unused-do-bind' --main-is $(package):exe:$(package)" --test=":main debug" -W
 
 dev-deps:
 	stack install ghcid
