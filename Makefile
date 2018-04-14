@@ -39,7 +39,7 @@ bench:
 	$(stack) bench $(package)
 
 ghcid:
-	$(stack) exec -- ghcid -c "stack ghci $(package):exe --ghci-options='-fobject-code -fno-warn-unused-do-bind' --main-is $(package):exe:$(package)"
+	$(stack) exec -- ghcid -c "stack ghci $(package) --ghci-options='-fobject-code -fno-warn-unused-do-bind' --main-is $(package):exe:$(package)"
 
 ghcid-run:
 	$(stack) exec -- ghcid -c "stack ghci $(package):exe --ghci-options='-fobject-code -fno-warn-unused-do-bind' --main-is $(package):exe:$(package)" --test=":main debug" -W

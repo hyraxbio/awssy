@@ -36,9 +36,7 @@ import qualified Graphics.Vty as V
 import qualified Graphics.Vty.Input.Events as K
 
 import qualified Aws as A
-
-version :: Text
-version = "0.0.2.6"
+import qualified Args 
 
 spinner :: [Text]
 spinner = ["|", "/", "-", "\\"]
@@ -84,13 +82,12 @@ app = B.App { B.appDraw = drawUI
             , B.appAttrMap = const theMap
             }
 
-
 main :: IO ()
-main = do
-  ip <- getIp
+main = Args.runArgs uiMain
 
-  args <- Env.getArgs
-  let pem = fromMaybe "~/.ssh/hyraxbio.pem" $ headMay args
+uiMain :: FilePath -> IO ()
+uiMain pem = do
+  ip <- getIp
 
   chan <- BCh.newBChan 50
 
@@ -463,7 +460,7 @@ drawUI st =
       B.vLimit 1 $ bottomBarLeft <+> B.fill ' ' <+> bottomBarRight
 
     bottomBarLeft =
-      dullTxt $ "awssy " <> version
+      dullTxt $ "awssy " <> Args.version
 
     bottomBarRight =
       B.withAttr "messageInfo" $ B.txt $ st ^. uiStatus
