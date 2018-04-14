@@ -29,12 +29,8 @@ executable awssy
                      , lens
                      , brick
                      , vty
-                     , mtl
-                     , transformers
                      , vector
                      , safe-exceptions
-                     , async
-                     , stm
                      , aeson
                      , req
                      , data-default-class
