@@ -14,6 +14,7 @@ module Aws ( Ec2Instance (..)
 
 import           Protolude
 import qualified Data.Text as Txt
+import qualified Data.Text.Encoding as TxtE
 import qualified Data.Aeson as Ae
 import qualified Data.ByteString.Lazy as BSL
 import qualified System.IO as IO
@@ -155,14 +156,11 @@ exec' bin cwd args = do
 
 fetchInstances :: IO [Ec2Instance]
 fetchInstances = do
-  void $ execWait' "sh" Nothing ["-c", "echo 'Fetching AWS data'; rm -f aws.js | true"]
-  (x, _o, err) <- execWait "sh" Nothing ["-c", "aws ec2 describe-instances > aws.js"]
-  -- let (x, err) = (Ex.ExitSuccess, "")
+  (x, o, err) <- execWait "sh" Nothing ["-c", "r=$(aws ec2 describe-instances); echo $r"]
+  let j = BSL.fromStrict . TxtE.encodeUtf8 $ o
 
   case x of
-    Ex.ExitSuccess -> do
-      j <- BSL.readFile "aws.js"
-
+    Ex.ExitSuccess ->
       case Ae.eitherDecode j :: Either [Char] Describe of
         Left e -> throwString e
         Right r -> do
@@ -186,8 +184,8 @@ fetchInstances = do
                   , ec2PublicDnsName = i ^. iPublicDnsName
                   , ec2PublicIpAddress = fromMaybe "" $ i ^. iPublicIpAddress
                   , ec2Name = getTag "Name" $ i ^.iTags
-                  , ec2Placement = i ^. iPlacement ^. pAvailabilityZone
-                  , ec2State = i ^. iState ^. sName
+                  , ec2Placement = i ^. (iPlacement . pAvailabilityZone)
+                  , ec2State = i ^. (iState . sName)
                   , ec2SecurityGroup = getSecGroup $ i ^. iSecurityGroups
                   , ec2PortForwards = []
                   }
