@@ -262,18 +262,18 @@ drawUI st =
       (button NameButtonAdd "Add" <+> errorAdd)
 
     settingsAddForward =
-      ( B.txt "Local port"
+      ( titleTxt "Local port"
         <=>
-        B.txt "Remote host"
+        titleTxt "Remote host"
         <=>
-        B.txt "Remote port"
+        titleTxt "Remote port"
       )
       <+>
-      ( (B.txt ": " <+> editor NameForwardLocalPort 5 (st ^. uiEditForwardLocalPort))
+      ( (titleTxt ": " <+> editor NameForwardLocalPort 5 (st ^. uiEditForwardLocalPort))
         <=>
-        (B.txt ": " <+> editor NameForwardRemoteHost 15 (st ^. uiEditForwardRemoteHost))
+        (titleTxt ": " <+> editor NameForwardRemoteHost 15 (st ^. uiEditForwardRemoteHost))
         <=>
-        (B.txt ": " <+> editor NameForwardRemotePort 5 (st ^. uiEditForwardRemotePort))
+        (titleTxt ": " <+> editor NameForwardRemotePort 5 (st ^. uiEditForwardRemotePort))
       )
 
     settingsForwardList =
@@ -283,42 +283,42 @@ drawUI st =
       B.withAttr "messageError" $ B.txt $ st ^. uiAddError
 
     detailBlock =
-      ( B.txt "Name"
+      ( titleTxt "Name"
         <=>
-        B.txt "State"
+        titleTxt "State"
         <=>
-        B.txt "Public DNS"
+        titleTxt "Public DNS"
         <=>
-        B.txt "Public IP"
+        titleTxt "Public IP"
         <=>
-        B.txt "Instance type"
+        titleTxt "Instance type"
         <=>
-        B.txt "Zone"
+        titleTxt "Zone"
         <=>
-        B.txt "Launch time"
+        titleTxt "Launch time"
         <=>
-        B.txt "Instance Id"
+        titleTxt "Instance Id"
         <=>
-        B.txt "Security group"
+        titleTxt "Security group"
       )
       <+>
-      ( (B.txt ": " <+> (txt $ maybe "" A.ec2Name (st ^. uiSelectedInstance)))
+      ( (titleTxt ": " <+> (txt $ maybe "" A.ec2Name (st ^. uiSelectedInstance)))
         <=>
-        (B.txt ": " <+> (txt $ maybe "" A.ec2State (st ^. uiSelectedInstance)))
+        (titleTxt ": " <+> (txt $ maybe "" A.ec2State (st ^. uiSelectedInstance)))
         <=>
-        (B.txt ": " <+> (txt $ maybe "" A.ec2PublicDnsName (st ^. uiSelectedInstance)))
+        (titleTxt ": " <+> (txt $ maybe "" A.ec2PublicDnsName (st ^. uiSelectedInstance)))
         <=>
-        (B.txt ": " <+> (txt $ maybe "" A.ec2PublicIpAddress (st ^. uiSelectedInstance)))
+        (titleTxt ": " <+> (txt $ maybe "" A.ec2PublicIpAddress (st ^. uiSelectedInstance)))
         <=>
-        (B.txt ": " <+> (txt $ maybe "" A.ec2InstanceType (st ^. uiSelectedInstance)))
+        (titleTxt ": " <+> (txt $ maybe "" A.ec2InstanceType (st ^. uiSelectedInstance)))
         <=>
-        (B.txt ": " <+> (txt $ maybe "" A.ec2Placement (st ^. uiSelectedInstance)))
+        (titleTxt ": " <+> (txt $ maybe "" A.ec2Placement (st ^. uiSelectedInstance)))
         <=>
-        (B.txt ": " <+> (txt $ maybe "" A.ec2LaunchTime (st ^. uiSelectedInstance)))
+        (titleTxt ": " <+> (txt $ maybe "" A.ec2LaunchTime (st ^. uiSelectedInstance)))
         <=>
-        (B.txt ": " <+> (txt $ maybe "" A.ec2InstanceId (st ^. uiSelectedInstance)))
+        (titleTxt ": " <+> (txt $ maybe "" A.ec2InstanceId (st ^. uiSelectedInstance)))
         <=>
-        (B.txt ": " <+> (txt $ maybe "" (maybe "" snd . A.ec2SecurityGroup) (st ^. uiSelectedInstance)))
+        (titleTxt ": " <+> (txt $ maybe "" (maybe "" snd . A.ec2SecurityGroup) (st ^. uiSelectedInstance)))
       )
       <+>
       B.fill ' '
@@ -335,6 +335,8 @@ drawUI st =
     bottomBarRight =
       B.withAttr "messageInfo" $ B.txt $ st ^. uiStatus
       
+    titleTxt t =
+      B.withAttr "titleText" $ txt t
 
     txt t =
       B.txt $ if Txt.null t then " " else t
@@ -373,6 +375,7 @@ theMap = BA.attrMap V.defAttr [ (BE.editAttr               , V.black `B.on` V.cy
                               , ("messageError"            , B.fg V.red)
                               , ("messageWarn"             , B.fg V.brightYellow)
                               , ("messageInfo"             , B.fg V.cyan)
+                              , ("titleText"               , B.fg V.green)
                               ]
 
 startSsh :: Text -> Text -> Text -> A.Ec2Instance -> IO ()
