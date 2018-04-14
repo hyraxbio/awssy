@@ -37,10 +37,15 @@ import qualified Graphics.Vty.Input.Events as K
 import qualified Aws as A
 
 version :: Text
-version = "0.0.2.2"
+version = "0.0.2.4"
+
+spinner :: [Text]
+spinner = ["|", "/", "-", "\\"]
 
 data Event = EventUpdate [A.Ec2Instance]
            | EventStatus Text
+           | EventStarted Text
+           | EventTick
 
 data Name = NameInstances
           | NameDetail
@@ -62,7 +67,10 @@ data UIState = UIState { _uiFocus :: !(BF.FocusRing Name)
                        , _uiPem :: Text
                        , _uiAddError :: Text
                        , _uiStatus :: Text
-                       , _uiFnUpdate :: IO ()
+                       , _uiTickCount :: Int
+                       , _uiFnUpdate :: Maybe Text -> IO ()
+                       , _uiFnStarted :: Text -> IO ()
+                       , _uiStarting :: [Text]
                        }
 
 makeLenses ''UIState
@@ -84,13 +92,19 @@ main = do
   args <- Env.getArgs
   let pem = fromMaybe "~/.ssh/hyraxbio.pem" $ headMay args
 
-  chan <- BCh.newBChan 5
+  chan <- BCh.newBChan 50
 
-  let updateFromAws = do
+  let started n = BCh.writeBChan chan $ EventStarted n
+
+  let updateFromAws updated = do
         BCh.writeBChan chan $ EventStatus "fetching from aws..."
         is <- A.fetchInstances
         BCh.writeBChan chan $ EventUpdate is
         BCh.writeBChan chan $ EventStatus ""
+
+        case updated of
+          Nothing -> pass
+          Just u -> started u
 
   -- Construct the initial state values
   let st1 = UIState { _uiFocus = BF.focusRing [NameInstances, NameForwardsList, NameForwardLocalPort, NameForwardRemoteHost, NameForwardRemotePort, NameButtonAdd]
@@ -104,15 +118,22 @@ main = do
                     , _uiPem = Txt.pack pem
                     , _uiAddError = ""
                     , _uiStatus = ""
+                    , _uiStarting = []
                     , _uiFnUpdate = updateFromAws
+                    , _uiFnStarted = started
+                    , _uiTickCount = 0
                     }
 
   let st2 = st1 & uiSelectedInstance .~ (snd <$> BL.listSelectedElement (st1 ^. uiInstances))
   let st3 = st2 & uiForwards .~ BL.list NameForwardsList (Vec.fromList $ maybe [] (\(_, e) -> A.ec2PortForwards e) (BL.listSelectedElement $ st2 ^. uiInstances)) 1
 
   void . forkIO $ forever $ do
-    updateFromAws
+    updateFromAws Nothing
     threadDelay $ 1000000 * 60 * 5
+          
+  void . forkIO $ forever $ do
+    threadDelay 500000
+    BCh.writeBChan chan EventTick
           
   -- Run brick
   void $ B.customMain (V.mkVty V.defaultConfig) (Just chan) app st3
@@ -132,7 +153,7 @@ handleEvent st ev =
           B.halt st
 
         (K.KFun 5, []) -> do
-          liftIO $ void . forkIO $ st ^. uiFnUpdate
+          liftIO $ void . forkIO $ (st ^. uiFnUpdate) Nothing
           B.continue st
 
         _ ->
@@ -170,6 +191,7 @@ handleEvent st ev =
                     Just selected -> do
                       liftIO . void . forkIO $ startInstance st selected
                       B.continue $ st & uiStatus .~ "Starting " <> Txt.take 35 (A.ec2Name selected)
+                                      & uiStarting %~ (A.ec2Name selected :)
 
                 _ -> do
                   r <- BL.handleListEventVi BL.handleListEvent ve $ st ^. uiInstances
@@ -221,6 +243,12 @@ handleEvent st ev =
     (B.AppEvent (EventUpdate is')) -> do
       is <- liftIO $ applySettings is'
       B.continue $ applyUpdate st is
+  
+    (B.AppEvent (EventStarted n)) ->
+      B.continue $ st & uiStarting %~ filter (/= n)
+  
+    (B.AppEvent EventTick) ->
+      B.continue $ st & uiTickCount %~ (\c -> c + 1 `mod` 100)
   
     _ -> B.continue st
 
@@ -418,12 +446,17 @@ drawUI st =
       BL.renderList (\_ e -> instanceName e) (BF.focusGetCurrent (st ^. uiFocus) == Just NameInstances) (st ^. uiInstances)
 
     instanceName e =
-      let status = case A.ec2State e of
-                     "stopped" -> "- "
-                     "running" -> "+ "
-                     _ -> "? "
+      let
+        status' = case A.ec2State e of
+                    "stopped" -> "- "
+                    "running" -> "+ "
+                    _ -> "? "
+
+        status = if A.ec2Name e `elem` st ^. uiStarting
+                    then fromMaybe "|" (atMay spinner (st ^. uiTickCount `mod` length spinner)) <> " "
+                    else status'
       in
-      (B.withAttr (BA.attrName . Txt.unpack $ "status_" <> A.ec2State e) $ txt $ status) <+> (B.txt $ A.ec2Name e)
+      (B.withAttr (BA.attrName . Txt.unpack $ "status_" <> A.ec2State e) $ txt status) <+> (B.txt $ A.ec2Name e)
 
     bottomBar =
       B.vLimit 1 $ bottomBarLeft <+> B.fill ' ' <+> bottomBarRight
@@ -579,4 +612,4 @@ startInstance st inst = do
   let id = A.ec2InstanceId inst
   void $ A.execWait "sh" Nothing Nothing ["-c", "aws ec2 start-instances --instance-ids " <> id]
   void $ A.execWait "sh" Nothing Nothing ["-c", "aws ec2 wait instance-status-ok --instance-ids " <> id]
-  st ^. uiFnUpdate
+  (st ^. uiFnUpdate) (Just $ A.ec2Name inst)
