@@ -218,8 +218,8 @@ drawUI st =
       <+>
       (B.padTop (B.Pad 2) $ rightBlock)
       <=>
-      (B.txt $ "awssy " <> version)
-      
+      bottomBar
+
     block n f =
       vtitle n
       <=>
@@ -309,6 +309,16 @@ drawUI st =
 
     instancesList =
       BL.renderList (\_ e -> B.txt $ A.ec2Name e) (BF.focusGetCurrent (st ^. uiFocus) == Just NameInstances) (st ^. uiInstances)
+
+    bottomBar =
+      B.vLimit 1 $ bottomBarLeft <+> B.fill ' ' <+> bottomBarRight
+
+    bottomBarLeft =
+      B.txt $ "awssy " <> version
+
+    bottomBarRight =
+      B.txt "."
+      
 
     txt t =
       B.txt $ if Txt.null t then " " else t
