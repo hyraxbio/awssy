@@ -36,9 +36,10 @@ import qualified Graphics.Vty.Input.Events as K
 import qualified Aws as A
 
 version :: Text
-version = "0.0.1.4"
+version = "0.0.1.5"
 
-data Event = EventUpdate
+data Event = EventUpdate [A.Ec2Instance]
+           | EventStatus Text
 
 data Name = NameInstances
           | NameDetail
@@ -59,6 +60,7 @@ data UIState = UIState { _uiFocus :: !(BF.FocusRing Name)
                        , _uiIp :: Text
                        , _uiPem :: Text
                        , _uiAddError :: Text
+                       , _uiStatus :: Text
                        }
 
 makeLenses ''UIState
@@ -74,13 +76,20 @@ app = B.App { B.appDraw = drawUI
 
 main :: IO ()
 main = do
-  r <- applySettings =<< A.fetchInstances
+  r <- applySettings =<< pure [] --A.fetchInstances
   ip <- getIp
 
   args <- Env.getArgs
   let pem = fromMaybe "~/.ssh/hyraxbio.pem" $ headMay args
 
   chan <- BCh.newBChan 5
+
+  void . forkIO $ {- forever $ -} do
+    BCh.writeBChan chan $ EventStatus "fetching from aws..."
+    is <- A.fetchInstances
+    BCh.writeBChan chan $ EventUpdate is
+    BCh.writeBChan chan $ EventStatus ""
+    threadDelay $ 1000000 -- * 60 * 5
 
   -- Construct the initial state values
   let st1 = UIState { _uiFocus = BF.focusRing [NameInstances, NameForwardsList, NameForwardLocalPort, NameForwardRemoteHost, NameForwardRemotePort, NameButtonAdd]
@@ -93,6 +102,7 @@ main = do
                     , _uiIp = ip
                     , _uiPem = Txt.pack pem
                     , _uiAddError = ""
+                    , _uiStatus = ""
                     }
 
   let st2 = st1 & uiSelectedInstance .~ (snd <$> BL.listSelectedElement (st1 ^. uiInstances))
@@ -177,7 +187,13 @@ handleEvent st ev =
 
             _ -> B.continue st
 
-      
+    (B.AppEvent (EventStatus s)) -> 
+      B.continue $ st & uiStatus .~ s
+
+    (B.AppEvent (EventUpdate is')) -> do
+      is <- liftIO $ applySettings is'
+      B.continue $ st & uiInstances .~ BL.list NameInstances (Vec.fromList is) 1
+  
     _ -> B.continue st
 
   where
@@ -317,7 +333,7 @@ drawUI st =
       B.txt $ "awssy " <> version
 
     bottomBarRight =
-      B.txt "."
+      B.withAttr "messageInfo" $ B.txt $ st ^. uiStatus
       
 
     txt t =
@@ -355,6 +371,8 @@ theMap = BA.attrMap V.defAttr [ (BE.editAttr               , V.black `B.on` V.cy
                               , ("button"                  , V.defAttr)
                               , ("buttonFocus"             , V.black `B.on` V.yellow)
                               , ("messageError"            , B.fg V.red)
+                              , ("messageWarn"             , B.fg V.brightYellow)
+                              , ("messageInfo"             , B.fg V.cyan)
                               ]
 
 startSsh :: Text -> Text -> Text -> A.Ec2Instance -> IO ()
