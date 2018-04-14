@@ -37,7 +37,7 @@ import qualified Graphics.Vty.Input.Events as K
 import qualified Aws as A
 
 version :: Text
-version = "0.0.2.0"
+version = "0.0.2.2"
 
 data Event = EventUpdate [A.Ec2Instance]
            | EventStatus Text
@@ -163,6 +163,13 @@ handleEvent st ev =
                         Just (_, sg) -> B.suspendAndResume $  saveSettings st
                                                            >> startShell (st ^. uiPem) (st ^. uiIp) sg selected
                                                            >> pure st
+
+                K.KChar '+' ->
+                  case st ^. uiSelectedInstance of
+                    Nothing -> B.continue st
+                    Just selected -> do
+                      liftIO . void . forkIO $ startInstance st selected
+                      B.continue $ st & uiStatus .~ "Starting " <> Txt.take 35 (A.ec2Name selected)
 
                 _ -> do
                   r <- BL.handleListEventVi BL.handleListEvent ve $ st ^. uiInstances
@@ -321,13 +328,17 @@ drawUI st =
         titleTxt "F5"
         <=>
         titleTxt "s"
+        <=>
+        titleTxt "+"
       )
       <+>
-      ( (titleTxt ": " <+> B.txt "Start ssh")
+      ( (titleTxt ": " <+> B.txt "Start ssh session (started instances only)")
         <=>
         (titleTxt ": " <+> B.txt "Refresh from AWS")
         <=>
         (titleTxt ": " <+> B.txt "Start shell (see echo for variables)")
+        <=>
+        (titleTxt ": " <+> B.txt "Start an instance")
        )
       )
 
@@ -563,3 +574,9 @@ applySettings es =
         Just s -> e { A.ec2PortForwards = s }
           
  
+startInstance :: UIState -> A.Ec2Instance -> IO ()
+startInstance st inst = do
+  let id = A.ec2InstanceId inst
+  void $ A.execWait "sh" Nothing Nothing ["-c", "aws ec2 start-instances --instance-ids " <> id]
+  void $ A.execWait "sh" Nothing Nothing ["-c", "aws ec2 wait instance-status-ok --instance-ids " <> id]
+  st ^. uiFnUpdate
