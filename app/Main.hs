@@ -89,7 +89,7 @@ uiMain :: FilePath -> IO ()
 uiMain pem = do
   ip <- getIp
 
-  chan <- BCh.newBChan 50
+  chan <- BCh.newBChan 5
 
   let started n = BCh.writeBChan chan $ EventStarted n
 
