@@ -447,6 +447,7 @@ drawUI st =
       let
         status' = case A.ec2State e of
                     "stopped" -> "- "
+                    "terminated" -> "x "
                     "running" -> "+ "
                     _ -> "? "
 
@@ -516,6 +517,7 @@ theMap = BA.attrMap V.defAttr [ (BE.editAttr               , V.black `B.on` V.cy
                               , ("titleText"               , B.fg V.green)
                               , ("normalText"              , B.fg V.white)
                               , ("status_stopped"          , B.fg V.brightRed)
+                              , ("status_terminated"       , B.fg V.yellow)
                               , ("status_running"          , B.fg V.brightGreen)
                               ]
 
