@@ -51,8 +51,8 @@ data Instance = Instance { _iImageId :: !Text
                          , _iInstanceId :: !Text
                          , _iInstanceType :: !Text
                          , _iLaunchTime :: !Text
-                         , _iSubnetId :: !Text
-                         , _iVpcId :: !Text
+                         , _iSubnetId :: !(Maybe Text)
+                         , _iVpcId :: !(Maybe Text)
                          , _iArchitecture :: !Text
                          , _iPublicDnsName :: !Text
                          , _iPublicIpAddress :: !(Maybe Text)
@@ -178,8 +178,8 @@ fetchInstances = do
                   , ec2InstanceId = i ^. iInstanceId
                   , ec2InstanceType = i ^. iInstanceType
                   , ec2LaunchTime = i ^. iLaunchTime
-                  , ec2SubnetId = i ^. iSubnetId
-                  , ec2VpcId = i ^. iVpcId
+                  , ec2SubnetId = fromMaybe "" $ i ^. iSubnetId
+                  , ec2VpcId = fromMaybe "" $ i ^. iVpcId
                   , ec2Architecture = i ^. iArchitecture 
                   , ec2PublicDnsName = i ^. iPublicDnsName
                   , ec2PublicIpAddress = fromMaybe "" $ i ^. iPublicIpAddress
