@@ -1,13 +1,13 @@
 name:                awssy
-version:             0.1.3.3
+version:             0.1.3.4
 -- synopsis:
 -- description:
-homepage:            https://github.com/andrevdm/awssy#readme
+homepage:            https://github.com/hyraxbio/awssy#readme
 license:             BSD3
 license-file:        LICENSE
-author:              Andre Van Der Merwe
+author:              HyraxBio
 maintainer:          andre@andrevdm.com
-copyright:           2018 Andre Van Der Merwe
+copyright:           2018 HyraxBio
 category:            Terminal
 build-type:          Simple
 extra-source-files:  README.md
@@ -40,4 +40,4 @@ executable awssy
 
 source-repository head
   type:     git
-  location: https://github.com/andrevdm/awssy
+  location: https://github.com/hyraxbio/awssy

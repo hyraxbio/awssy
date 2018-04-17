@@ -24,7 +24,7 @@ data Opts = Opts { key :: Text
             deriving (A.Data, Typeable)
 
 version :: Text
-version = "0.1.3.3"
+version = "0.1.3.5"
 
 runArgs :: (FilePath -> IO ()) -> IO ()
 runArgs run = do
@@ -87,7 +87,7 @@ mkArgs =
     _PROGRAM_VERSION = Txt.unpack version
     _PROGRAM_INFO = _PROGRAM_NAME <> " version " <> _PROGRAM_VERSION
     _PROGRAM_ABOUT = "awssy: aws terminal GUI"
-    _COPYRIGHT = "(C) 2018 Andre Van Der Merwe (andre@andrevdm.com)"
+    _COPYRIGHT = "(C) 2018 HyraxBio"
   in
     opts
     &= A.versionArg [A.explicit, A.name "version", A.summary _PROGRAM_INFO]
