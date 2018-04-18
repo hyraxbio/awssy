@@ -22,7 +22,6 @@ import qualified System.Exit as Ex
 import qualified System.Process as Proc
 import           Control.Lens ((^.))
 import           Control.Lens.TH (makeLenses)
-import           Control.Exception.Safe (throwString)
 
 data Ec2Instance = Ec2Instance { ec2Name :: !Text
                                , ec2ImageId :: !Text
@@ -154,7 +153,7 @@ exec' bin cwd env args = do
 
 
 
-fetchInstances :: IO [Ec2Instance]
+fetchInstances :: IO (Either Text [Ec2Instance])
 fetchInstances = do
   (x, o, err) <- execWait "sh" Nothing Nothing ["-c", "r=$(aws ec2 describe-instances); echo $r"]
   let j = BSL.fromStrict . TxtE.encodeUtf8 $ o
@@ -162,12 +161,12 @@ fetchInstances = do
   case x of
     Ex.ExitSuccess ->
       case Ae.eitherDecode j :: Either [Char] Describe of
-        Left e -> throwString e
+        Left e -> pure . Left $ "JSON error: " <> Txt.pack e
         Right r -> do
           let e = concat $ fromReservation <$> (r ^. dReservations)
-          pure $ sortOn (Txt.toUpper . ec2Name) e
+          pure . Right $ sortOn (Txt.toUpper . ec2Name) e
   
-    _ -> throwString $ "aws failed" <> Txt.unpack err
+    _ -> pure . Left $ "error: " <> err
 
   where
     fromReservation r = 

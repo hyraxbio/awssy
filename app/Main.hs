@@ -92,12 +92,18 @@ uiMain pem = do
   chan <- BCh.newBChan 5
 
   let started n = BCh.writeBChan chan $ EventStarted n
+  let showErr e = BCh.writeBChan chan $ EventStatus (Txt.take 35 . Txt.replace "\n" " " . Txt.replace "\r" " " $ e)
 
   let updateFromAws updated = do
         BCh.writeBChan chan $ EventStatus "fetching from aws..."
-        is <- A.fetchInstances
-        BCh.writeBChan chan $ EventUpdate is
-        BCh.writeBChan chan $ EventStatus ""
+        A.fetchInstances >>= \case
+          Right is -> do
+            BCh.writeBChan chan $ EventUpdate is
+            BCh.writeBChan chan $ EventStatus ""
+
+          Left e -> 
+            showErr e
+
 
         case updated of
           Nothing -> pass
