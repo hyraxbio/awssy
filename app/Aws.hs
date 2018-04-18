@@ -48,16 +48,16 @@ data Reservation = Reservation { _rInstances :: [Instance]
                                } deriving (Generic)
 
 data Instance = Instance { _iImageId :: !Text
-                         , _iInstanceId :: !Text
-                         , _iInstanceType :: !Text
-                         , _iLaunchTime :: !Text
+                         , _iInstanceId :: !(Maybe Text)
+                         , _iInstanceType :: !(Maybe Text)
+                         , _iLaunchTime :: !(Maybe Text)
                          , _iSubnetId :: !(Maybe Text)
                          , _iVpcId :: !(Maybe Text)
-                         , _iArchitecture :: !Text
-                         , _iPublicDnsName :: !Text
+                         , _iArchitecture :: !(Maybe Text)
+                         , _iPublicDnsName :: !(Maybe Text)
                          , _iPublicIpAddress :: !(Maybe Text)
-                         , _iPlacement :: !Placement
-                         , _iState :: !InstanceState
+                         , _iPlacement :: !(Maybe Placement)
+                         , _iState :: !(Maybe InstanceState)
                          , _iTags :: ![Tag]
                          , _iSecurityGroups :: ![SecurityGroup]
                          } deriving (Generic)
@@ -175,23 +175,23 @@ fetchInstances = do
 
     fromInstance i =
       Ec2Instance { ec2ImageId = i ^. iImageId
-                  , ec2InstanceId = i ^. iInstanceId
-                  , ec2InstanceType = i ^. iInstanceType
-                  , ec2LaunchTime = i ^. iLaunchTime
+                  , ec2InstanceId = fromMaybe "" $ i ^. iInstanceId
+                  , ec2InstanceType = fromMaybe "" $ i ^. iInstanceType
+                  , ec2LaunchTime = fromMaybe "" $ i ^. iLaunchTime
                   , ec2SubnetId = fromMaybe "" $ i ^. iSubnetId
                   , ec2VpcId = fromMaybe "" $ i ^. iVpcId
-                  , ec2Architecture = i ^. iArchitecture 
-                  , ec2PublicDnsName = i ^. iPublicDnsName
+                  , ec2Architecture = fromMaybe "" $ i ^. iArchitecture 
+                  , ec2PublicDnsName = fromMaybe "" $ i ^. iPublicDnsName
                   , ec2PublicIpAddress = fromMaybe "" $ i ^. iPublicIpAddress
                   , ec2Name = getTag "Name" $ i ^.iTags
-                  , ec2Placement = i ^. (iPlacement . pAvailabilityZone)
-                  , ec2State = i ^. (iState . sName)
+                  , ec2Placement = maybe "" (^. pAvailabilityZone) $ i ^. iPlacement
+                  , ec2State = maybe "" (^. sName) $ i ^. iState
                   , ec2SecurityGroup = getSecGroup $ i ^. iSecurityGroups
                   , ec2PortForwards = []
                   }
 
     getTag n ts =
-      maybe "" _tValue (headMay $ filter (\x -> x ^. tKey == n) ts)
+      maybe "" (^. tValue) (headMay $ filter (\x -> x ^. tKey == n) ts)
 
 
     getSecGroup gs =
