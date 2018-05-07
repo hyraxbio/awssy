@@ -161,12 +161,12 @@ fetchInstances = do
   case x of
     Ex.ExitSuccess ->
       case Ae.eitherDecode j :: Either [Char] Describe of
-        Left e -> pure . Left $ "JSON error: " <> Txt.pack e
+        Left e -> pure . Left $ "JSON error: " <> Txt.pack e <> "\n\n-----------------------\n" <> o <> "\n-----------------------\n\n"
         Right r -> do
           let e = concat $ fromReservation <$> (r ^. dReservations)
           pure . Right $ sortOn (Txt.toUpper . ec2Name) e
   
-    _ -> pure . Left $ "error: " <> err
+    _ -> pure . Left $ "error calling `ec2 describe-instances: " <> err
 
   where
     fromReservation r = 
