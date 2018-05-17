@@ -14,6 +14,7 @@ module Aws ( Ec2Instance (..)
 
 import           Protolude
 import qualified Data.Text as Txt
+import qualified Data.Text.IO as Txt
 import qualified Data.Text.Encoding as TxtE
 import qualified Data.Aeson as Ae
 import qualified Data.ByteString.Lazy as BSL
@@ -161,12 +162,17 @@ fetchInstances = do
   case x of
     Ex.ExitSuccess ->
       case Ae.eitherDecode j :: Either [Char] Describe of
-        Left e -> pure . Left $ "JSON error: " <> Txt.pack e <> "\n\n-----------------------\n" <> o <> "\n-----------------------\n\n"
+        Left e -> do
+          Txt.writeFile "awssy.error.log" $ "JSON error: " <> Txt.pack e <> "\n\n-----------------------\n" <> o <> "\n-----------------------\n\n"
+          pure . Left $ "JSON error: " <> Txt.pack e <> "\n\n-----------------------\n" <> o <> "\n-----------------------\n\n"
+          
         Right r -> do
           let e = concat $ fromReservation <$> (r ^. dReservations)
           pure . Right $ sortOn (Txt.toUpper . ec2Name) e
   
-    _ -> pure . Left $ "error calling `ec2 describe-instances: " <> err
+    _ -> do
+      Txt.writeFile "awssy.error.log" $ "error calling `ec2 describe-instances: " <> err
+      pure . Left $ "error calling `ec2 describe-instances: " <> err
 
   where
     fromReservation r = 

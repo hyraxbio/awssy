@@ -12,6 +12,7 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.List as Lst
 import qualified Data.Text as Txt
+import qualified Data.Text.IO as Txt
 import qualified Data.Text.Encoding as TxtE
 import qualified Data.Aeson as Ae
 import qualified Data.Vector as Vec
@@ -87,6 +88,8 @@ main = Args.runArgs uiMain
 
 uiMain :: FilePath -> IO ()
 uiMain pem = do
+  Txt.writeFile "awssy.error.log" ""
+
   ip <- getIp
 
   chan <- BCh.newBChan 5
