@@ -88,7 +88,10 @@ main = Args.runArgs uiMain
 
 uiMain :: FilePath -> IO ()
 uiMain pem = do
-  Txt.writeFile "awssy.error.log" ""
+  exs <- Dir.doesFileExist "awssy.error.log"
+  if exs
+  then Dir.removeFile "awssy.error.log"
+  else pass
 
   ip <- getIp
 
