@@ -201,7 +201,7 @@ fetchInstances = do
 
     getSecGroup gs =
       let
-        gs1 = filter (\g -> g ^. sGroupName /= "safety-first") gs
+        gs1 = filter (\g -> g ^. sGroupName /= "safety-first") gs <> gs
         g' = headMay gs1
       in
       case g' of
