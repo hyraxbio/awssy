@@ -12,7 +12,6 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.List as Lst
 import qualified Data.Text as Txt
-import qualified Data.Text.IO as Txt
 import qualified Data.Text.Encoding as TxtE
 import qualified Data.Aeson as Ae
 import qualified Data.Vector as Vec
@@ -103,12 +102,23 @@ uiMain pem = do
   let updateFromAws updated = do
         BCh.writeBChan chan $ EventStatus "fetching from aws..."
         A.fetchInstances >>= \case
-          Right is -> do
+          Right (is, j) -> do
+            p <- getLastResultFilePath
+            BSL.writeFile p j
             BCh.writeBChan chan $ EventUpdate is
             BCh.writeBChan chan $ EventStatus ""
 
-          Left e -> 
-            showErr e
+          Left e -> do
+            p <- getLastResultFilePath
+            Dir.doesFileExist p >>= \case
+              False -> showErr e
+              True -> do
+                j <- BSL.readFile p
+                case A.parseAwsJson j of
+                  Left ee -> showErr $ "error loading cached JSON: " <> ee
+                  Right is -> do
+                    BCh.writeBChan chan $ EventUpdate is
+                    BCh.writeBChan chan $ EventStatus "NB! Using cached JSON!"
 
 
         case updated of
@@ -632,6 +642,11 @@ startInstance st inst = do
   void $ A.execWait "sh" Nothing Nothing ["-c", "aws ec2 start-instances --instance-ids " <> id]
   void $ A.execWait "sh" Nothing Nothing ["-c", "aws ec2 wait instance-status-ok --instance-ids " <> id]
   (st ^. uiFnUpdate) (Just $ A.ec2Name inst)
+
+getLastResultFilePath :: IO FilePath
+getLastResultFilePath = do
+  p <- getSettingsRootPath
+  pure $ p </> "last_aws.js"
 
 getSettingsFilePath :: IO FilePath
 getSettingsFilePath = do

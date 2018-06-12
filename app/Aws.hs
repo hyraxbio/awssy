@@ -10,6 +10,7 @@ module Aws ( Ec2Instance (..)
            , execWait
            , exec'
            , execWait'
+           , parseAwsJson
            ) where
 
 import           Protolude
@@ -154,25 +155,36 @@ exec' bin cwd env args = do
 
 
 
-fetchInstances :: IO (Either Text [Ec2Instance])
+fetchInstances :: IO (Either Text ([Ec2Instance], BSL.ByteString))
 fetchInstances = do
   (x, o, err) <- execWait "sh" Nothing Nothing ["-c", "r=$(aws ec2 describe-instances); echo $r"]
   let j = BSL.fromStrict . TxtE.encodeUtf8 $ o
 
   case x of
     Ex.ExitSuccess ->
-      case Ae.eitherDecode j :: Either [Char] Describe of
+      case parseAwsJson j of
         Left e -> do
-          Txt.writeFile "awssy.error.log" $ "JSON error: " <> Txt.pack e <> "\n\n-----------------------\n" <> o <> "\n-----------------------\n\n"
-          pure . Left $ "JSON error: " <> Txt.pack e <> "\n\n-----------------------\n" <> o <> "\n-----------------------\n\n"
+          Txt.writeFile "awssy.error.log" $ "JSON error: " <> e <> "\n\n-----------------------\n" <> o <> "\n-----------------------\n\n"
+          pure . Left $ "JSON error: " <> e <> "\n\n-----------------------\n" <> o <> "\n-----------------------\n\n"
           
-        Right r -> do
-          let e = concat $ fromReservation <$> (r ^. dReservations)
-          pure . Right $ sortOn (Txt.toUpper . ec2Name) e
+        Right r -> 
+          pure . Right $ (r, j)
   
     _ -> do
       Txt.writeFile "awssy.error.log" $ "error calling `ec2 describe-instances: " <> err
       pure . Left $ "error calling `ec2 describe-instances: " <> err
+
+
+  
+parseAwsJson :: BSL.ByteString -> Either Text [Ec2Instance]
+parseAwsJson j = 
+  case Ae.eitherDecode j :: Either [Char] Describe of
+    Left e -> Left . Txt.pack $ e
+      
+    Right r -> 
+      let e = concat $ fromReservation <$> (r ^. dReservations) in
+      Right $ sortOn (Txt.toUpper . ec2Name) e
+  
 
   where
     fromReservation r = 
