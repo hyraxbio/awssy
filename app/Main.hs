@@ -304,7 +304,9 @@ applyUpdate st0 es = do
   let origInstances = Vec.toList $ st0 ^. (uiInstances . BL.listElementsL)
 
   -- Update instances with info from AWS but keep in-memory port forwards
-  let updatedInstances = foldr (updateInstance origInstances) [] es
+  let updatedInstances' = foldr (updateInstance origInstances) [] es
+  -- Remove terminated instances
+  let updatedInstances = filter (\u -> A.ec2State u /= "terminated") updatedInstances'
   
   -- Use the newly updated instances
   let st1 = st0 & uiInstances .~ BL.list NameInstances (Vec.fromList updatedInstances) 1
