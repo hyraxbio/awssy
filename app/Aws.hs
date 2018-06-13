@@ -59,8 +59,8 @@ data Instance = Instance { _iImageId :: !Text
                          , _iPublicIpAddress :: !(Maybe Text)
                          , _iPlacement :: !(Maybe Placement)
                          , _iState :: !(Maybe InstanceState)
-                         , _iTags :: ![Tag]
-                         , _iSecurityGroups :: ![SecurityGroup]
+                         , _iTags :: !(Maybe [Tag])
+                         , _iSecurityGroups :: !(Maybe [SecurityGroup])
                          } deriving (Generic)
 
 data Placement = Placement { _pAvailabilityZone :: !Text
@@ -200,10 +200,10 @@ parseAwsJson j =
                   , ec2Architecture = fromMaybe "" $ i ^. iArchitecture 
                   , ec2PublicDnsName = fromMaybe "" $ i ^. iPublicDnsName
                   , ec2PublicIpAddress = fromMaybe "" $ i ^. iPublicIpAddress
-                  , ec2Name = getTag "Name" $ i ^.iTags
+                  , ec2Name = getTag "Name" $ fromMaybe [] (i ^.iTags)
                   , ec2Placement = maybe "" (^. pAvailabilityZone) $ i ^. iPlacement
                   , ec2State = maybe "" (^. sName) $ i ^. iState
-                  , ec2SecurityGroup = getSecGroup $ i ^. iSecurityGroups
+                  , ec2SecurityGroup = getSecGroup $ fromMaybe [] (i ^. iSecurityGroups)
                   , ec2PortForwards = []
                   }
 
