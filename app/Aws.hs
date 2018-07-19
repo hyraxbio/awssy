@@ -18,8 +18,10 @@ import qualified Data.Text as Txt
 import qualified Data.Text.IO as Txt
 import qualified Data.Text.Encoding as TxtE
 import qualified Data.Aeson as Ae
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified System.IO as IO
+import qualified System.IO.Temp as Tmp
 import qualified System.Exit as Ex
 import qualified System.Process as Proc
 import           Control.Lens ((^.))
@@ -156,23 +158,28 @@ exec' bin cwd env args = do
 
 
 fetchInstances :: IO (Either Text ([Ec2Instance], BSL.ByteString))
-fetchInstances = do
-  (x, o, err) <- execWait "sh" Nothing Nothing ["-c", "r=$(aws ec2 describe-instances); echo $r"]
-  let j = BSL.fromStrict . TxtE.encodeUtf8 $ o
+fetchInstances = 
+  Tmp.withSystemTempFile "awssy_aws.js" $ \path tmpHandle -> do
+    IO.hClose tmpHandle
+    (x, _, err) <- execWait "sh" Nothing Nothing ["-c", "r=$(aws ec2 describe-instances); echo $r > " <> Txt.pack path]
+    
+    o' <- BS.readFile path
+    let o = TxtE.decodeUtf8 o'
+    let j = BSL.fromStrict o'
 
-  case x of
-    Ex.ExitSuccess ->
-      case parseAwsJson j of
-        Left e -> do
-          Txt.writeFile "awssy.error.log" $ "JSON error: " <> e <> "\n\n-----------------------\n" <> o <> "\n-----------------------\n\n"
-          pure . Left $ "JSON error: " <> e <> "\n\n-----------------------\n" <> o <> "\n-----------------------\n\n"
-          
-        Right r -> 
-          pure . Right $ (r, j)
-  
-    _ -> do
-      Txt.writeFile "awssy.error.log" $ "error calling `ec2 describe-instances: " <> err
-      pure . Left $ "error calling `ec2 describe-instances: " <> err
+    case x of
+      Ex.ExitSuccess ->
+        case parseAwsJson j of
+          Left e -> do
+            Txt.writeFile "awssy.error.log" $ "JSON error: " <> e <> "\n\n-----------------------\n" <> o <> "\n-----------------------\n\n"
+            pure . Left $ "JSON error: " <> e <> "\n\n-----------------------\n" <> o <> "\n-----------------------\n\n"
+            
+          Right r -> 
+            pure . Right $ (r, j)
+    
+      _ -> do
+        Txt.writeFile "awssy.error.log" $ "error calling `ec2 describe-instances: " <> err
+        pure . Left $ "error calling `ec2 describe-instances: " <> err
 
 
   

@@ -1,5 +1,5 @@
 name:                awssy
-version:             0.1.4.3
+version:             0.1.4.4
 -- synopsis:
 -- description:
 homepage:            https://github.com/hyraxbio/awssy#readme
@@ -36,6 +36,7 @@ executable awssy
                      , req
                      , data-default-class
                      , cmdargs
+                     , temporary
   default-language:    Haskell2010
 
 source-repository head
