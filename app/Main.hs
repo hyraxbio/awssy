@@ -79,7 +79,7 @@ app = B.App { B.appDraw = drawUI
             , B.appChooseCursor = B.showFirstCursor
             , B.appHandleEvent = handleEvent
             , B.appStartEvent = pure
-            , B.appAttrMap = const theMap
+            , B.appAttrMap = const attrMap
             }
 
 main :: IO ()
@@ -203,14 +203,6 @@ handleEvent st ev =
                         Just (_, sg) -> B.suspendAndResume $  saveSettings st
                                                            >> startShell (st ^. uiPem) (st ^. uiIp) sg selected
                                                            >> pure st
-
-                K.KChar '+' ->
-                  case st ^. uiSelectedInstance of
-                    Nothing -> B.continue st
-                    Just selected -> do
-                      liftIO . void . forkIO $ startInstance st selected
-                      B.continue $ st & uiStatus .~ "Starting " <> Txt.take 35 (A.ec2Name selected)
-                                      & uiStarting %~ (A.ec2Name selected :)
 
                 _ -> do
                   r <- BL.handleListEventVi BL.handleListEvent ve $ st ^. uiInstances
@@ -378,8 +370,6 @@ drawUI st =
         titleTxt "F5"
         <=>
         titleTxt "s"
-        <=>
-        titleTxt "+"
       )
       <+>
       ( (titleTxt ": " <+> dullTxt "Start ssh session (started instances only)")
@@ -387,8 +377,6 @@ drawUI st =
         (titleTxt ": " <+> dullTxt "Refresh from AWS")
         <=>
         (titleTxt ": " <+> dullTxt "Start shell (see echo for variables)")
-        <=>
-        (titleTxt ": " <+> dullTxt "Start an instance")
        )
       )
 
@@ -526,50 +514,37 @@ drawUI st =
       BB.border $ B.txt t
 
 
-theMap :: BA.AttrMap
-theMap = BA.attrMap V.defAttr [ (BE.editAttr               , V.black `B.on` V.cyan)
-                              , (BE.editFocusedAttr        , V.black `B.on` V.yellow)
-                              , (BL.listAttr               , V.white `B.on` V.blue)
-                              , (BL.listSelectedAttr       , V.blue  `B.on` V.white)
-                              , (BL.listSelectedFocusedAttr, V.black `B.on` V.yellow)
-                              , ("infoTitle"               , B.fg V.cyan)
-                              , ("button"                  , V.defAttr)
-                              , ("buttonFocus"             , V.black `B.on` V.yellow)
-                              , ("messageError"            , B.fg V.red)
-                              , ("messageWarn"             , B.fg V.brightYellow)
-                              , ("messageInfo"             , B.fg V.cyan)
-                              , ("titleText"               , B.fg V.green)
-                              , ("normalText"              , B.fg V.white)
-                              , ("status_Stopped"          , B.fg V.brightRed)
-                              , ("status_Terminated"       , B.fg V.yellow)
-                              , ("status_Running"          , B.fg V.brightGreen)
-                              ]
+attrMap :: BA.AttrMap
+attrMap = BA.attrMap V.defAttr [ (BE.editAttr               , V.black `B.on` V.cyan)
+                               , (BE.editFocusedAttr        , V.black `B.on` V.yellow)
+                               , (BL.listAttr               , V.white `B.on` V.blue)
+                               , (BL.listSelectedAttr       , V.blue  `B.on` V.white)
+                               , (BL.listSelectedFocusedAttr, V.black `B.on` V.yellow)
+                               , ("infoTitle"               , B.fg V.cyan)
+                               , ("button"                  , V.defAttr)
+                               , ("buttonFocus"             , V.black `B.on` V.yellow)
+                               , ("messageError"            , B.fg V.red)
+                               , ("messageWarn"             , B.fg V.brightYellow)
+                               , ("messageInfo"             , B.fg V.cyan)
+                               , ("titleText"               , B.fg V.green)
+                               , ("normalText"              , B.fg V.white)
+                               , ("status_Stopped"          , B.fg V.brightRed)
+                               , ("status_Terminated"       , B.fg V.yellow)
+                               , ("status_Running"          , B.fg V.brightGreen)
+                               ]
 
 exec :: [Text] -> IO ExitCode
 exec cmds = A.execWait' "sh" Nothing Nothing ["-c", Txt.intercalate "; " cmds]
 
-startSh :: Text -> Text -> A.Ec2Instance -> IO () -> IO ()
-startSh ip sg inst fn = 
-  bracket_ auth deauth fn
 
-  where
-    auth  =
-      exec [ "echo '### " <> A.ec2Name inst <> " ###'"
-           , "echo grant access to: " <> ip
-           , "echo aws --region eu-west-1 ec2 authorize-security-group-ingress --group-id " <> sg <> " --protocol tcp --port 22 --cidr " <> ip <> "/24"
-           , "aws --region eu-west-1 ec2 authorize-security-group-ingress --group-id " <> sg <> " --protocol tcp --port 22 --cidr " <> ip <> "/24"
-           ]
-
-    deauth =
-      exec [ "echo remove access from: " <> ip
-           , "echo aws --region eu-west-1 ec2 revoke-security-group-ingress --group-id " <> sg <> " --protocol tcp --port 22 --cidr " <> ip <> "/24"
-           , "aws --region eu-west-1 ec2 revoke-security-group-ingress --group-id " <> sg <> " --protocol tcp --port 22 --cidr " <> ip <> "/24"
-           ]
+startSh :: Text -> Text -> IO () -> IO ()
+startSh ip sg fn = 
+  bracket_ (A.sshIngress ip sg) (A.sshRevokeIngress ip sg) fn
 
 
 startSsh :: Text -> Text -> Text -> A.Ec2Instance -> IO ()
 startSsh pem ip sg inst = 
-  startSh ip sg inst $ do
+  startSh ip sg $ do
     let fs = (\(l, h, r) -> "-L " <> show l <> ":" <> h <> ":" <> show r) <$> A.ec2PortForwards inst 
     let args = Txt.intercalate " " fs
 
@@ -590,7 +565,7 @@ startShell pem ip sg inst = do
   let env = Map.toList $ Map.union env' currentEnv
   let sh = Map.findWithDefault "sh" "SHELL" currentEnv
 
-  startSh ip sg inst $ do
+  startSh ip sg $ do
     void $ exec [ "echo ''"
                 , "echo 'Shell for: ### " <> A.ec2Name inst <> " ###'"
                 , "echo '  AWS_H: " <> A.ec2PublicIpAddress inst <> "'"
@@ -638,13 +613,6 @@ applySettings es = do
         Just s -> e { A.ec2PortForwards = s }
           
  
-startInstance :: UIState -> A.Ec2Instance -> IO ()
-startInstance st inst = do
-  let id = A.ec2InstanceId inst
-  void $ A.execWait "sh" Nothing Nothing ["-c", "aws ec2 start-instances --instance-ids " <> id]
-  void $ A.execWait "sh" Nothing Nothing ["-c", "aws ec2 wait instance-status-ok --instance-ids " <> id]
-  (st ^. uiFnUpdate) (Just $ A.ec2Name inst)
-
 getLastResultFilePath :: IO FilePath
 getLastResultFilePath = do
   p <- getSettingsRootPath

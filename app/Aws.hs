@@ -1,6 +1,5 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
 
@@ -11,24 +10,18 @@ module Aws ( Ec2Instance (..)
            , exec'
            , execWait'
            , parseInstances
+           , sshIngress
+           , sshRevokeIngress
            ) where
 
 import           Protolude
 import qualified Data.Text as Txt
-import qualified Data.Text.IO as Txt
-import qualified Data.Text.Encoding as TxtE
 import qualified Data.Aeson as Ae
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified System.IO as IO
-import qualified System.IO.Temp as Tmp
-import qualified System.Exit as Ex
 import qualified System.Process as Proc
-import           Control.Lens ((<&>), (^.), (.~), (&), (^..), folded, set, view)
-import           Control.Lens.TH (makeLenses)
---import qualified Network.AWS as AWS
+import           Control.Lens ((<&>), (^.), (&), (^..), (?~), folded, set)
 import qualified Network.AWS.EC2 as EC2
-import qualified Network.AWS.Data as AWS
 import qualified Control.Monad.Trans.AWS as AWS
 
 data Ec2Instance = Ec2Instance { ec2Name :: !Text
@@ -98,8 +91,7 @@ parseInstances b =
 fetchInstances :: IO (Either Text ([Ec2Instance], BSL.ByteString))
 fetchInstances = do
   let region = AWS.Ireland
-  lgr <- AWS.newLogger AWS.Debug stdout
-  env <- AWS.newEnv AWS.Discover <&> set AWS.envRegion region -- . set AWS.envLogger lgr 
+  env <- AWS.newEnv AWS.Discover <&> set AWS.envRegion region
 
   instances' <- AWS.runResourceT . AWS.runAWST env $ do
     d' <- AWS.trying AWS._Error $ AWS.send EC2.describeInstances
@@ -149,14 +141,37 @@ fetchInstances = do
         _ -> Nothing
 
 
-test :: IO [EC2.Reservation]
-test = do
+sshIngress :: Text -> Text -> IO ()
+sshIngress ip secGroupId = do
   let region = AWS.Ireland
-  lgr <- AWS.newLogger AWS.Debug stdout
-  env <- AWS.newEnv AWS.Discover <&> set AWS.envRegion region -- . set AWS.envLogger lgr 
+  env <- AWS.newEnv AWS.Discover <&> set AWS.envRegion region
 
-  AWS.runResourceT . AWS.runAWST env {- . AWS.within region -} $ do
-    r <- AWS.send (EC2.describeInstances)
-    liftIO . print $ r ^. EC2.dirsNextToken 
-    pure $ r ^. EC2.dirsReservations
+  r <- AWS.runResourceT . AWS.runAWST env $ do
+    let auth = EC2.authorizeSecurityGroupIngress
+                 & EC2.asgiIPProtocol ?~ "tcp"
+                 & EC2.asgiGroupId ?~ secGroupId
+                 & EC2.asgiFromPort ?~ 22
+                 & EC2.asgiToPort ?~ 22
+                 & EC2.asgiCidrIP ?~ ip <> "/22"
 
+    AWS.trying AWS._Error $ AWS.send auth
+
+  print r --TODO
+
+  
+sshRevokeIngress :: Text -> Text -> IO ()
+sshRevokeIngress ip secGroupId = do
+  let region = AWS.Ireland
+  env <- AWS.newEnv AWS.Discover <&> set AWS.envRegion region
+
+  r <- AWS.runResourceT . AWS.runAWST env $ do
+    let auth = EC2.revokeSecurityGroupIngress
+                 & EC2.rsgiIPProtocol ?~ "tcp"
+                 & EC2.rsgiGroupId ?~ secGroupId
+                 & EC2.rsgiFromPort ?~ 22
+                 & EC2.rsgiToPort ?~ 22
+                 & EC2.rsgiCidrIP ?~ ip <> "/22"
+
+    AWS.trying AWS._Error $ AWS.send auth
+
+  print r --TODO

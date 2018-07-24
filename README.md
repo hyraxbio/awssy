@@ -56,8 +56,3 @@ Select a started instance and press `s`. This will
    e.g. to copy a file `scp -i $AWS_K ./README.md $AWS_UH:/home/$AWS_U/README.md`
    
  - When the SSH session ends, remove SSH instance for your IP
- 
- 
-## Starting a stopped instance
-
-Press the `+` key to start a stopped instance. The instance will be ready to connect to when the spinner stops and changes to a `+`
