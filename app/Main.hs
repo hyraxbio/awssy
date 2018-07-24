@@ -113,8 +113,8 @@ uiMain pem = do
             Dir.doesFileExist p >>= \case
               False -> showErr e
               True -> do
-                j <- BSL.readFile p
-                case A.parseAwsJson j of
+                j <- BS.readFile p
+                case A.parseInstances j of
                   Left ee -> showErr $ "error loading cached JSON: " <> ee
                   Right is -> do
                     BCh.writeBChan chan $ EventUpdate is
@@ -470,9 +470,9 @@ drawUI st =
     instanceName e =
       let
         status' = case A.ec2State e of
-                    "stopped" -> "- "
-                    "terminated" -> "x "
-                    "running" -> "+ "
+                    "Stopped" -> "- "
+                    "Terminated" -> "x "
+                    "Running" -> "+ "
                     _ -> "? "
 
         status = if A.ec2Name e `elem` st ^. uiStarting
@@ -540,9 +540,9 @@ theMap = BA.attrMap V.defAttr [ (BE.editAttr               , V.black `B.on` V.cy
                               , ("messageInfo"             , B.fg V.cyan)
                               , ("titleText"               , B.fg V.green)
                               , ("normalText"              , B.fg V.white)
-                              , ("status_stopped"          , B.fg V.brightRed)
-                              , ("status_terminated"       , B.fg V.yellow)
-                              , ("status_running"          , B.fg V.brightGreen)
+                              , ("status_Stopped"          , B.fg V.brightRed)
+                              , ("status_Terminated"       , B.fg V.yellow)
+                              , ("status_Running"          , B.fg V.brightGreen)
                               ]
 
 exec :: [Text] -> IO ExitCode

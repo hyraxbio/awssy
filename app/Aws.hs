@@ -10,7 +10,7 @@ module Aws ( Ec2Instance (..)
            , execWait
            , exec'
            , execWait'
-           , parseAwsJson
+           , parseInstances
            ) where
 
 import           Protolude
@@ -24,8 +24,12 @@ import qualified System.IO as IO
 import qualified System.IO.Temp as Tmp
 import qualified System.Exit as Ex
 import qualified System.Process as Proc
-import           Control.Lens ((^.))
+import           Control.Lens ((<&>), (^.), (.~), (&), (^..), folded, set, view)
 import           Control.Lens.TH (makeLenses)
+--import qualified Network.AWS as AWS
+import qualified Network.AWS.EC2 as EC2
+import qualified Network.AWS.Data as AWS
+import qualified Control.Monad.Trans.AWS as AWS
 
 data Ec2Instance = Ec2Instance { ec2Name :: !Text
                                , ec2ImageId :: !Text
@@ -41,81 +45,9 @@ data Ec2Instance = Ec2Instance { ec2Name :: !Text
                                , ec2State :: !Text
                                , ec2SecurityGroup :: !(Maybe (Text, Text))
                                , ec2PortForwards :: ![(Int, Text, Int)]
-                               } deriving (Show)
+                               } deriving (Show, Generic, Ae.FromJSON, Ae.ToJSON)
 
 
-data Describe = Describe { _dReservations :: [Reservation]
-                         } deriving (Generic)
-
-data Reservation = Reservation { _rInstances :: [Instance]
-                               } deriving (Generic)
-
-data Instance = Instance { _iImageId :: !Text
-                         , _iInstanceId :: !(Maybe Text)
-                         , _iInstanceType :: !(Maybe Text)
-                         , _iLaunchTime :: !(Maybe Text)
-                         , _iSubnetId :: !(Maybe Text)
-                         , _iVpcId :: !(Maybe Text)
-                         , _iArchitecture :: !(Maybe Text)
-                         , _iPublicDnsName :: !(Maybe Text)
-                         , _iPublicIpAddress :: !(Maybe Text)
-                         , _iPlacement :: !(Maybe Placement)
-                         , _iState :: !(Maybe InstanceState)
-                         , _iTags :: !(Maybe [Tag])
-                         , _iSecurityGroups :: !(Maybe [SecurityGroup])
-                         } deriving (Generic)
-
-data Placement = Placement { _pAvailabilityZone :: !Text
-                           } deriving (Generic)
-
-data InstanceState = InstanceState { _sName :: !Text
-                                   } deriving (Generic)
-
-data Tag = Tag { _tKey :: !Text
-               , _tValue :: !Text
-               } deriving (Generic)
-
-data SecurityGroup = SecurityGroup { _sGroupName :: !Text
-                                   , _sGroupId :: !Text
-                                   } deriving (Generic)
-
-makeLenses ''Describe
-makeLenses ''Reservation
-makeLenses ''Instance
-makeLenses ''Placement
-makeLenses ''InstanceState
-makeLenses ''Tag
-makeLenses ''SecurityGroup
-
-instance Ae.FromJSON Describe where
-  parseJSON = Ae.genericParseJSON Ae.defaultOptions { Ae.fieldLabelModifier = renField 2 False }
-
-instance Ae.FromJSON Reservation where
-  parseJSON = Ae.genericParseJSON Ae.defaultOptions { Ae.fieldLabelModifier = renField 2 False }
-
-instance Ae.FromJSON Instance where
-  parseJSON = Ae.genericParseJSON Ae.defaultOptions { Ae.fieldLabelModifier = renField 2 False }
-
-instance Ae.FromJSON Placement where
-  parseJSON = Ae.genericParseJSON Ae.defaultOptions { Ae.fieldLabelModifier = renField 2 False }
-
-instance Ae.FromJSON InstanceState where
-  parseJSON = Ae.genericParseJSON Ae.defaultOptions { Ae.fieldLabelModifier = renField 2 False }
-
-instance Ae.FromJSON Tag where
-  parseJSON = Ae.genericParseJSON Ae.defaultOptions { Ae.fieldLabelModifier = renField 2 False }
-
-instance Ae.FromJSON SecurityGroup where
-  parseJSON = Ae.genericParseJSON Ae.defaultOptions { Ae.fieldLabelModifier = renField 2 False }
- 
-
-renField :: Int -> Bool -> [Char] -> [Char]
-renField drp toLower =
-  Txt.unpack . (if toLower then mkLower else identity) . Txt.drop drp . Txt.pack
-  where
-    mkLower t = Txt.toLower (Txt.take 1 t) <> Txt.drop 1 t
-
-  
 execWait :: FilePath -> Maybe FilePath -> Maybe [(Text, Text)] -> [Text] -> IO (ExitCode, Text, Text)
 execWait bin cwd env args = do
   (outp, errp, phandle) <- exec bin cwd env args
@@ -156,73 +88,75 @@ exec' bin cwd env args = do
   pure phandle
 
 
+parseInstances :: ByteString -> Either Text [Ec2Instance]
+parseInstances b =
+  case Ae.eitherDecode (BSL.fromStrict b) :: Either [Char] [Ec2Instance] of
+    Left e -> Left $ Txt.pack e
+    Right r -> Right r
+
 
 fetchInstances :: IO (Either Text ([Ec2Instance], BSL.ByteString))
-fetchInstances = 
-  Tmp.withSystemTempFile "awssy_aws.js" $ \path tmpHandle -> do
-    IO.hClose tmpHandle
-    (x, _, err) <- execWait "sh" Nothing Nothing ["-c", "r=$(aws ec2 describe-instances); echo $r > " <> Txt.pack path]
-    
-    o' <- BS.readFile path
-    let o = TxtE.decodeUtf8 o'
-    let j = BSL.fromStrict o'
+fetchInstances = do
+  let region = AWS.Ireland
+  lgr <- AWS.newLogger AWS.Debug stdout
+  env <- AWS.newEnv AWS.Discover <&> set AWS.envRegion region -- . set AWS.envLogger lgr 
 
-    case x of
-      Ex.ExitSuccess ->
-        case parseAwsJson j of
-          Left e -> do
-            Txt.writeFile "awssy.error.log" $ "JSON error: " <> e <> "\n\n-----------------------\n" <> o <> "\n-----------------------\n\n"
-            pure . Left $ "JSON error: " <> e <> "\n\n-----------------------\n" <> o <> "\n-----------------------\n\n"
-            
-          Right r -> 
-            pure . Right $ (r, j)
-    
-      _ -> do
-        Txt.writeFile "awssy.error.log" $ "error calling `ec2 describe-instances: " <> err
-        pure . Left $ "error calling `ec2 describe-instances: " <> err
+  instances' <- AWS.runResourceT . AWS.runAWST env $ do
+    d' <- AWS.trying AWS._Error $ AWS.send EC2.describeInstances
+    case d' of
+      Left e -> pure . Left $ e
+      Right d -> do
+        let r = d ^. EC2.dirsReservations
+        pure . Right . concat $ r ^.. folded . EC2.rInstances
 
-
-  
-parseAwsJson :: BSL.ByteString -> Either Text [Ec2Instance]
-parseAwsJson j = 
-  case Ae.eitherDecode j :: Either [Char] Describe of
-    Left e -> Left . Txt.pack $ e
-      
-    Right r -> 
-      let e = concat $ fromReservation <$> (r ^. dReservations) in
-      Right $ sortOn (Txt.toUpper . ec2Name) e
-  
+  case instances' of
+    Left e -> pure . Left . show $ e
+    Right instances -> do
+      let ec2is = mkInstance <$> instances
+      pure . Right $ (ec2is, Ae.encode ec2is)
 
   where
-    fromReservation r = 
-      fromInstance <$> (r ^. rInstances)
-
-    fromInstance i =
-      Ec2Instance { ec2ImageId = i ^. iImageId
-                  , ec2InstanceId = fromMaybe "" $ i ^. iInstanceId
-                  , ec2InstanceType = fromMaybe "" $ i ^. iInstanceType
-                  , ec2LaunchTime = fromMaybe "" $ i ^. iLaunchTime
-                  , ec2SubnetId = fromMaybe "" $ i ^. iSubnetId
-                  , ec2VpcId = fromMaybe "" $ i ^. iVpcId
-                  , ec2Architecture = fromMaybe "" $ i ^. iArchitecture 
-                  , ec2PublicDnsName = fromMaybe "" $ i ^. iPublicDnsName
-                  , ec2PublicIpAddress = fromMaybe "" $ i ^. iPublicIpAddress
-                  , ec2Name = getTag "Name" $ fromMaybe [] (i ^.iTags)
-                  , ec2Placement = maybe "" (^. pAvailabilityZone) $ i ^. iPlacement
-                  , ec2State = maybe "" (^. sName) $ i ^. iState
-                  , ec2SecurityGroup = getSecGroup $ fromMaybe [] (i ^. iSecurityGroups)
-                  , ec2PortForwards = []
-                  }
+    mkInstance i = 
+        Ec2Instance { ec2ImageId = i ^. EC2.insImageId
+                    , ec2InstanceId = i ^. EC2.insInstanceId
+                    , ec2InstanceType = show $ i ^. EC2.insInstanceType
+                    , ec2LaunchTime = show $ i ^. EC2.insLaunchTime --TODO format
+                    , ec2SubnetId = fromMaybe "" $ i ^. EC2.insSubnetId
+                    , ec2VpcId = fromMaybe "" $ i ^. EC2.insVPCId
+                    , ec2Architecture = show $ i ^. EC2.insArchitecture 
+                    , ec2PublicDnsName = fromMaybe "" $ i ^. EC2.insPublicDNSName
+                    , ec2PublicIpAddress = fromMaybe "" $ i ^. EC2.insPublicIPAddress
+                    , ec2Name = getTag "Name" $  i ^. EC2.insTags
+                    , ec2Placement = fromMaybe "" $ i ^. EC2.insPlacement . EC2.pAvailabilityZone
+                    , ec2State = Txt.drop 3 . show $ i ^. EC2.insState . EC2.isName
+                    , ec2SecurityGroup = getSecGroup $ i ^. EC2.insSecurityGroups
+                    , ec2PortForwards = []
+                    }
 
     getTag n ts =
-      maybe "" (^. tValue) (headMay $ filter (\x -> x ^. tKey == n) ts)
-
+      case filter (\t -> t ^. EC2.tagKey == n) ts of
+        (t:_) -> t ^. EC2.tagValue
+        _ -> ""
+        
 
     getSecGroup gs =
       let
-        gs1 = filter (\g -> g ^. sGroupName /= "safety-first") gs <> gs
-        g' = headMay gs1
+        gs1 = filter (\g -> g ^. EC2.giGroupName /= Just "safety-first") gs <> gs
+        gs2 = (\g -> (g ^. EC2.giGroupName, g ^. EC2.giGroupId)) <$> gs1
       in
-      case g' of
-        Nothing -> Nothing
-        Just g -> Just (g ^. sGroupName, g ^. sGroupId)
+      case gs2 of
+        ((Just n, Just i) : _ ) -> Just (n, i)
+        _ -> Nothing
+
+
+test :: IO [EC2.Reservation]
+test = do
+  let region = AWS.Ireland
+  lgr <- AWS.newLogger AWS.Debug stdout
+  env <- AWS.newEnv AWS.Discover <&> set AWS.envRegion region -- . set AWS.envLogger lgr 
+
+  AWS.runResourceT . AWS.runAWST env {- . AWS.within region -} $ do
+    r <- AWS.send (EC2.describeInstances)
+    liftIO . print $ r ^. EC2.dirsNextToken 
+    pure $ r ^. EC2.dirsReservations
+
