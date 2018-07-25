@@ -5,9 +5,10 @@
 
 module Main where
 
-import           Protolude
+import           Protolude hiding (catch)
 import           Control.Lens (_Just, (%~), (^.), (.~), (?~))
 import           Control.Lens.TH (makeLenses)
+import           Control.Exception.Safe (SomeException, catch)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.List as Lst
@@ -22,6 +23,7 @@ import           System.FilePath ((</>))
 import qualified System.Directory as Dir
 import qualified System.Environment as Env
 import qualified Network.HTTP.Req as R
+
 
 import           Brick ((<+>), (<=>))
 import qualified Brick as B
@@ -83,7 +85,18 @@ app = B.App { B.appDraw = drawUI
             }
 
 main :: IO ()
-main = Args.runArgs uiMain
+main = Args.runArgs tryUiMain
+
+
+tryUiMain :: Args.Args -> IO ()
+tryUiMain args =
+  catch (uiMain args) handleException
+
+  where
+    handleException :: SomeException -> IO ()
+    handleException e =
+      BS.writeFile "awssy.error.log" $ show args <> "\n\n" <> show e
+  
 
 uiMain :: Args.Args -> IO ()
 uiMain args = do
