@@ -63,7 +63,7 @@ data UIState = UIState { _uiFocus :: !(BF.FocusRing Name)
                        , _uiEditForwardRemoteHost :: !(BE.Editor Text Name)
                        , _uiEditForwardRemotePort :: !(BE.Editor Text Name)
                        , _uiIp :: Text
-                       , _uiPem :: Text
+                       , _uiArgs :: Args.Args
                        , _uiAddError :: Text
                        , _uiStatus :: Text
                        , _uiTickCount :: Int
@@ -85,8 +85,8 @@ app = B.App { B.appDraw = drawUI
 main :: IO ()
 main = Args.runArgs uiMain
 
-uiMain :: FilePath -> IO ()
-uiMain pem = do
+uiMain :: Args.Args -> IO ()
+uiMain args = do
   exs <- Dir.doesFileExist "awssy.error.log"
   if exs
   then Dir.removeFile "awssy.error.log"
@@ -101,7 +101,7 @@ uiMain pem = do
 
   let updateFromAws updated = do
         BCh.writeBChan chan $ EventStatus "fetching from aws..."
-        A.fetchInstances >>= \case
+        A.fetchInstances (args ^. Args.aRegion) >>= \case
           Right (is, j) -> do
             p <- getLastResultFilePath
             BSL.writeFile p j
@@ -110,15 +110,19 @@ uiMain pem = do
 
           Left e -> do
             p <- getLastResultFilePath
-            Dir.doesFileExist p >>= \case
-              False -> showErr e
-              True -> do
-                j <- BS.readFile p
-                case A.parseInstances j of
-                  Left ee -> showErr $ "error loading cached JSON: " <> ee
-                  Right is -> do
-                    BCh.writeBChan chan $ EventUpdate is
-                    BCh.writeBChan chan $ EventStatus "NB! Using cached JSON!"
+            if args ^. Args.aAllowCache
+            then 
+              Dir.doesFileExist p >>= \case
+                False -> showErr e
+                True -> do
+                  j <- BS.readFile p
+                  case A.parseInstances j of
+                    Left ee -> showErr $ "error loading cached JSON: " <> ee
+                    Right is -> do
+                      BCh.writeBChan chan $ EventUpdate is
+                      BCh.writeBChan chan $ EventStatus "NB! Using cached JSON!"
+            else
+              showErr e
 
 
         case updated of
@@ -134,7 +138,7 @@ uiMain pem = do
                    , _uiEditForwardRemotePort = BE.editor NameForwardRemotePort (Just 1) ""
                    , _uiEditForwardRemoteHost = BE.editor NameForwardRemoteHost (Just 1) "localhost"
                    , _uiIp = ip
-                   , _uiPem = Txt.pack pem
+                   , _uiArgs = args
                    , _uiAddError = ""
                    , _uiStatus = ""
                    , _uiStarting = []
@@ -190,7 +194,7 @@ handleEvent st ev =
                           if Txt.null $ A.ec2PublicIpAddress selected
                           then B.continue st
                           else B.suspendAndResume $  saveSettings st
-                                                  >> startSsh (st ^. uiPem) (st ^. uiIp) sg selected
+                                                  >> startSsh (st ^. uiArgs) (st ^. uiIp) sg selected
                                                   >> pure st
 
 
@@ -201,7 +205,7 @@ handleEvent st ev =
                       case A.ec2SecurityGroup selected of
                         Nothing -> B.continue st
                         Just (_, sg) -> B.suspendAndResume $  saveSettings st
-                                                           >> startShell (st ^. uiPem) (st ^. uiIp) sg selected
+                                                           >> startShell (st ^. uiArgs) (st ^. uiIp) sg selected
                                                            >> pure st
 
                 _ -> do
@@ -297,7 +301,7 @@ applyUpdate st0 es = do
 
   -- Update instances with info from AWS but keep in-memory port forwards
   let updatedInstances' = foldr (updateInstance origInstances) [] es
-  -- Remove terminated instances
+  -- Remove terminated irgsnstances
   let updatedInstances = filter (\u -> A.ec2State u /= "terminated") updatedInstances'
   
   -- Use the newly updated instances
@@ -472,7 +476,7 @@ drawUI st =
     bottomBar =
       (B.vLimit 1 $ bottomBarLeft <+> B.fill ' ' <+> bottomBarRight)
       <=>
-      (B.vLimit 1 $ B.fill ' ' <+> (dullTxt $ st ^. uiPem))
+      (B.vLimit 1 $ B.fill ' ' <+> (dullTxt . Txt.pack $ st ^. uiArgs . Args.aKeyFile))
 
     bottomBarLeft =
       dullTxt $ "awssy " <> Args.version
@@ -537,41 +541,41 @@ exec :: [Text] -> IO ExitCode
 exec cmds = A.execWait' "sh" Nothing Nothing ["-c", Txt.intercalate "; " cmds]
 
 
-startSh :: Text -> Text -> IO () -> IO ()
-startSh ip sg fn = 
-  bracket_ (A.sshIngress ip sg) (A.sshRevokeIngress ip sg) fn
+startSh :: Args.Args -> Text -> Text -> IO () -> IO ()
+startSh opts ip sg fn = 
+  bracket_ (A.sshIngress (opts ^. Args.aRegion) ip sg) (A.sshRevokeIngress (opts ^. Args.aRegion) ip sg) fn
 
 
-startSsh :: Text -> Text -> Text -> A.Ec2Instance -> IO ()
-startSsh pem ip sg inst = 
-  startSh ip sg $ do
+startSsh :: Args.Args -> Text -> Text -> A.Ec2Instance -> IO ()
+startSsh opts ip sg inst = 
+  startSh opts ip sg $ do
     let fs = (\(l, h, r) -> "-L " <> show l <> ":" <> h <> ":" <> show r) <$> A.ec2PortForwards inst 
     let args = Txt.intercalate " " fs
 
-    void $ exec [ "echo ssh -i " <> pem <> " ec2-user@" <> A.ec2PublicIpAddress inst <> " " <> args
-                , "ssh -i " <> pem <> " ec2-user@" <> A.ec2PublicIpAddress inst <> " " <> args
+    void $ exec [ "echo ssh -i " <> Txt.pack (opts ^. Args.aKeyFile) <> " " <> opts ^. Args.aUser <> "@" <> A.ec2PublicIpAddress inst <> " " <> args
+                , "ssh -i " <> Txt.pack (opts ^. Args.aKeyFile) <> " " <> opts ^. Args.aUser <> "@" <> A.ec2PublicIpAddress inst <> " " <> args
                 ]
 
 
-startShell :: Text -> Text -> Text -> A.Ec2Instance -> IO ()
-startShell pem ip sg inst = do
+startShell :: Args.Args -> Text -> Text -> A.Ec2Instance -> IO ()
+startShell args ip sg inst = do
   let env' = Map.fromList [ ("AWS_H", A.ec2PublicIpAddress inst)
-                          , ("AWS_U", "ec2-user")
-                          , ("AWS_K", pem)
-                          , ("AWS_UH", "ec2-user@" <> A.ec2PublicIpAddress inst)
+                          , ("AWS_U", args ^. Args.aUser)
+                          , ("AWS_K", Txt.pack $ args ^. Args.aKeyFile)
+                          , ("AWS_UH", args ^. Args.aUser <> "@" <> A.ec2PublicIpAddress inst)
                           ]
 
   currentEnv <- Map.fromList <$> ((\(k, v) -> (Txt.pack k, Txt.pack v)) <<$>> Env.getEnvironment)
   let env = Map.toList $ Map.union env' currentEnv
   let sh = Map.findWithDefault "sh" "SHELL" currentEnv
 
-  startSh ip sg $ do
+  startSh args ip sg $ do
     void $ exec [ "echo ''"
                 , "echo 'Shell for: ### " <> A.ec2Name inst <> " ###'"
                 , "echo '  AWS_H: " <> A.ec2PublicIpAddress inst <> "'"
-                , "echo '  AWS_U: ec2-user'"
-                , "echo '  AWS_K: " <> pem <> "'"
-                , "echo '  AWS_UH: ec2-user@" <> A.ec2PublicIpAddress inst <> "'"
+                , "echo '  AWS_U: " <> args ^. Args.aUser <> "'"
+                , "echo '  AWS_K: " <> Txt.pack (args ^. Args.aKeyFile) <> "'"
+                , "echo '  AWS_UH: " <> args ^. Args.aUser <> "@" <> A.ec2PublicIpAddress inst <> "'"
                 , "echo '  e.g. scp -i $AWS_K ./README.md $AWS_UH:/home/$AWS_U/README.md'"
                 , "echo ''"
                 ]
@@ -616,7 +620,7 @@ applySettings es = do
 getLastResultFilePath :: IO FilePath
 getLastResultFilePath = do
   p <- getSettingsRootPath
-  pure $ p </> "last_aws.js"
+  pure $ p </> "last_aws2.js"
 
 getSettingsFilePath :: IO FilePath
 getSettingsFilePath = do

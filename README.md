@@ -6,27 +6,39 @@ Simple terminal GUI for the aws cli tool, for connecting to EC2 instances
 
 # Usage
 
-## First use
+`awssy --help` to get help
 
-For the first use specify your ssh key and the `--save` (or `-s`) option to save it as the default
+or
 
-  `awssy --key ~/.ssh/mykey.pem -s`
+`awssy --region MyRegion --key ~/.ssh/mykey_rsa --user ec2-user --cache`
 
-## Typical use
+The following defaults are used 
+ - key: ~/.ssh/id_rsa
+ - user: ec2-user
+ - cache: disallowed
+ 
+You must specify a region, one of
+ - Beijing
+ - Frankfurt
+ - GovCloud
+ - GovCloudFIPS
+ - Ireland
+ - London
+ - Montreal
+ - Mumbai
+ - NorthCalifornia
+ - NorthVirginia
+ - Ohio
+ - Oregon
+ - SaoPaulo
+ - Seoul
+ - Singapore
+ - Sydney
+ - Tokyo
 
-For all future runs you can then simply use
 
-  `awssy`
+Caching means that your last fetch EC2 data will be used if awssy can not connect to AWS for some reason.
 
-
-To use a different key for a single session
-
-  `awssy --key ~/.ssh/otherkey.pem`
-
-
-To change the default
-
-  `awssy --key ~/.ssh/otherkey.pem -s`
 
 ## Startup
 

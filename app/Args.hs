@@ -2,86 +2,87 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE LambdaCase #-}
 
 module Args ( runArgs
             , version
+            , Args (..)
+            , aKeyFile
+            , aAllowCache
+            , aUser
+            , aRegion
             ) where
 
 import           Protolude
-import qualified Data.Map.Strict as Map
 import qualified Data.Text as Txt
-import qualified Data.Text.Encoding as TxtE
-import qualified Data.ByteString as BS
+import           Control.Lens.TH (makeLenses)
 import           System.Console.CmdArgs ((&=))
 import qualified System.Console.CmdArgs as A
-import           System.FilePath ((</>))
 import qualified System.Directory as Dir
+import qualified Network.AWS.Types as AWS
 
-data Opts = Opts { key :: Text
-                 , save :: Bool
-                 }
-            deriving (A.Data, Typeable)
+data Opts = Opts { key :: !Text
+                 , cache :: !Bool
+                 , user :: !Text
+                 , region :: !Text
+                 } deriving (A.Data, Typeable)
+
+data Args = Args { _aKeyFile :: !FilePath
+                 , _aAllowCache :: !Bool
+                 , _aUser :: !Text
+                 , _aRegion :: !AWS.Region
+                 } deriving (Show)
+
+makeLenses ''Args
 
 version :: Text
-version = "0.1.4.5"
+version = "0.2.1.3"
 
-runArgs :: (FilePath -> IO ()) -> IO ()
+runArgs :: (Args -> IO ()) -> IO ()
 runArgs run = do
-  -- If the user did not specify any arguments, pretend as "--help" was given
   opts <- A.cmdArgs mkArgs
-  pem <- getPem opts
-  run pem
+  runExceptT (parseOpts opts) >>= \case
+    Left e -> putText e
+    Right args -> run args
 
-getPem :: Opts -> IO FilePath
-getPem opts
-  | Txt.null (key opts) = loadSettings
-  | save opts = saveSettings (key opts)
-  | otherwise = pure (Txt.unpack $ key opts) 
 
-loadSettings :: IO FilePath
-loadSettings = do
-  let def = "~/.ssh/id_rsa"
-  p <- getSettingsFilePath
+parseOpts :: Opts -> ExceptT Text IO Args
+parseOpts opts = do
+  awsRegion <-
+    case readMaybe (Txt.unpack $ region opts) :: Maybe AWS.Region of
+      Just r -> pure r
+      Nothing -> throwE "Invalid region, please use one of: Beijing, Frankfurt, GovCloud, GovCloudFIPS, Ireland, London, Montreal, Mumbai, NorthCalifornia, NorthVirginia, Ohio, Oregon, SaoPaulo, Seoul, Singapore, Sydney, Tokyo"
 
-  Dir.doesFileExist p >>= \case
-    True -> do
-      cfgLines1 <- Txt.lines . TxtE.decodeUtf8 <$> BS.readFile p
-      let cfgLines2 = Txt.strip <$> cfgLines1
-      let cfgLines3 = filter (not . Txt.isPrefixOf "#") cfgLines2
-      let cfg1 = Txt.breakOn "=" <$> cfgLines3
-      let cfg2 = filter (not . Txt.null . snd) cfg1
-      let cfg3 = (\(k, v) -> (Txt.strip k, Txt.strip . Txt.drop 1 $ v)) <$> cfg2
-      let cfg = Map.fromList cfg3
-      pure . Txt.unpack $ Map.findWithDefault def "key" cfg
-    False ->
-      pure $ Txt.unpack def
+  keyFile <- do
+    let path = if Txt.null (key opts)
+               then "~/.ssh/id_rsa"
+               else key opts
 
-saveSettings :: Text -> IO FilePath
-saveSettings pem = do
-  p <- getSettingsFilePath
-  BS.writeFile p $ TxtE.encodeUtf8 ("key=" <> pem)
-  pure $ Txt.unpack pem
+    liftIO (Dir.doesFileExist $ Txt.unpack path) >>= \case
+      True -> pure path
+      False -> throwE $ "Unable to find key file: " <> path
 
-getSettingsFilePath :: IO FilePath
-getSettingsFilePath = do
-  p <- getSettingsRootPath
-  pure $ p </> "awssy.conf"
 
-getSettingsRootPath :: IO FilePath
-getSettingsRootPath = do
-  p <- Dir.getXdgDirectory Dir.XdgConfig "awssy"
-  Dir.createDirectoryIfMissing True p
-  pure p
+  let userName =
+        if Txt.null (user opts)
+        then "ec2-user"
+        else user opts
   
+  pure Args { _aKeyFile = Txt.unpack keyFile
+            , _aAllowCache = cache opts
+            , _aUser = userName
+            , _aRegion = awsRegion
+            }
 
 mkArgs :: Opts
 mkArgs =
   let
-    opts = Opts { key  = ""    &= A.name "k" &= A.typFile &= A.help "ssh pem file" 
-                , save = False &= A.name "s"              &= A.help "save key file setting as default" 
+    opts = Opts { key    = ""         &= A.name "k" &= A.help "ssh pem file" 
+                , cache  = False      &= A.name "c" &= A.help "allow cached instance list"
+                , user   = "ec2-user" &= A.name "u" &= A.help "AWS user"
+                , region = ""         &= A.name "r" &= A.help "AWS region"
                 }
-
 
     _PROGRAM_NAME = "awssy"
     _PROGRAM_VERSION = Txt.unpack version

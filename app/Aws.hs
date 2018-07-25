@@ -88,9 +88,8 @@ parseInstances b =
     Right r -> Right r
 
 
-fetchInstances :: IO (Either Text ([Ec2Instance], BSL.ByteString))
-fetchInstances = do
-  let region = AWS.Ireland
+fetchInstances :: AWS.Region -> IO (Either Text ([Ec2Instance], BSL.ByteString))
+fetchInstances region = do
   env <- AWS.newEnv AWS.Discover <&> set AWS.envRegion region
 
   instances' <- AWS.runResourceT . AWS.runAWST env $ do
@@ -141,9 +140,8 @@ fetchInstances = do
         _ -> Nothing
 
 
-sshIngress :: Text -> Text -> IO ()
-sshIngress ip secGroupId = do
-  let region = AWS.Ireland
+sshIngress :: AWS.Region -> Text -> Text -> IO ()
+sshIngress region ip secGroupId = do
   env <- AWS.newEnv AWS.Discover <&> set AWS.envRegion region
 
   r <- AWS.runResourceT . AWS.runAWST env $ do
@@ -159,9 +157,8 @@ sshIngress ip secGroupId = do
   print r --TODO
 
   
-sshRevokeIngress :: Text -> Text -> IO ()
-sshRevokeIngress ip secGroupId = do
-  let region = AWS.Ireland
+sshRevokeIngress :: AWS.Region -> Text -> Text -> IO ()
+sshRevokeIngress region ip secGroupId = do
   env <- AWS.newEnv AWS.Discover <&> set AWS.envRegion region
 
   r <- AWS.runResourceT . AWS.runAWST env $ do
