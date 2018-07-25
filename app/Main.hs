@@ -1,6 +1,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
 
 module Main where
@@ -88,22 +89,33 @@ main :: IO ()
 main = Args.runArgs tryUiMain
 
 
+catch' :: ByteString -> IO a -> (SomeException -> IO a) -> IO a
+catch' name f h =
+  catch f (\(e :: SomeException) -> handler e)
+  
+  where
+    handler e = do
+      BS.writeFile "awssy.error.log" $ TxtE.encodeUtf8 Args.version <> "\n" <>  name <> "\n\n" <> show e
+      h e
+
+
 tryUiMain :: Args.Args -> IO ()
 tryUiMain args =
-  catch (uiMain args) handleException
+  catch' "main" (uiMain args) handleException
 
   where
-    handleException :: SomeException -> IO ()
-    handleException e =
-      BS.writeFile "awssy.error.log" $ show args <> "\n\n" <> show e
+    handleException e = do
+      putText "Exception running awssy"
+      putText "  Exception written to awssy.error.log"
+      print e
   
 
 uiMain :: Args.Args -> IO ()
 uiMain args = do
   exs <- Dir.doesFileExist "awssy.error.log"
   if exs
-  then Dir.removeFile "awssy.error.log"
-  else pass
+    then Dir.removeFile "awssy.error.log"
+    else pass
 
   ip <- getIp
 
@@ -111,36 +123,6 @@ uiMain args = do
 
   let started n = BCh.writeBChan chan $ EventStarted n
   let showErr e = BCh.writeBChan chan $ EventStatus (Txt.take 35 . Txt.replace "\n" " " . Txt.replace "\r" " " $ e)
-
-  let updateFromAws updated = do
-        BCh.writeBChan chan $ EventStatus "fetching from aws..."
-        A.fetchInstances (args ^. Args.aRegion) >>= \case
-          Right (is, j) -> do
-            p <- getLastResultFilePath
-            BSL.writeFile p j
-            BCh.writeBChan chan $ EventUpdate is
-            BCh.writeBChan chan $ EventStatus ""
-
-          Left e -> do
-            p <- getLastResultFilePath
-            if args ^. Args.aAllowCache
-            then 
-              Dir.doesFileExist p >>= \case
-                False -> showErr e
-                True -> do
-                  j <- BS.readFile p
-                  case A.parseInstances j of
-                    Left ee -> showErr $ "error loading cached JSON: " <> ee
-                    Right is -> do
-                      BCh.writeBChan chan $ EventUpdate is
-                      BCh.writeBChan chan $ EventStatus "NB! Using cached JSON!"
-            else
-              showErr e
-
-
-        case updated of
-          Nothing -> pass
-          Just u -> started u
 
   -- Construct the initial state values
   let st = UIState { _uiFocus = BF.focusRing [NameInstances, NameForwardsList, NameForwardLocalPort, NameForwardRemoteHost, NameForwardRemotePort, NameButtonAdd]
@@ -155,14 +137,14 @@ uiMain args = do
                    , _uiAddError = ""
                    , _uiStatus = ""
                    , _uiStarting = []
-                   , _uiFnUpdate = updateFromAws
+                   , _uiFnUpdate = updateFromAws chan showErr started
                    , _uiFnStarted = started
                    , _uiTickCount = 0
                    }
 
   void . forkIO $ forever $ do
-    updateFromAws Nothing
-    threadDelay $ 1000000 * 60 * 5
+    updateFromAws chan showErr started Nothing
+    threadDelay $ 1000000 * 60 * 5 
           
   void . forkIO $ forever $ do
     threadDelay 500000
@@ -170,6 +152,40 @@ uiMain args = do
           
   -- Run brick
   void $ B.customMain (V.mkVty V.defaultConfig) (Just chan) app st
+
+  where
+    updateFromAws chan showErr started updated = 
+      catch' "updateFromAws" (updateFromAws' chan showErr started updated) (showErr . show)
+      
+    updateFromAws' chan showErr started updated = do
+      BCh.writeBChan chan $ EventStatus "fetching from aws..."
+      A.fetchInstances (args ^. Args.aRegion) >>= \case
+        Right (is, j) -> do
+          p <- getLastResultFilePath
+          BSL.writeFile p j
+          BCh.writeBChan chan $ EventUpdate is
+          BCh.writeBChan chan $ EventStatus ""
+
+        Left e -> do
+          p <- getLastResultFilePath
+          if args ^. Args.aAllowCache
+          then 
+            Dir.doesFileExist p >>= \case
+              False -> showErr e
+              True -> do
+                j <- BS.readFile p
+                case A.parseInstances j of
+                  Left ee -> showErr $ "error loading cached JSON: " <> ee
+                  Right is -> do
+                    BCh.writeBChan chan $ EventUpdate is
+                    BCh.writeBChan chan $ EventStatus "NB! Using cached JSON!"
+          else
+            showErr e
+
+
+      case updated of
+        Nothing -> pass
+        Just u -> started u
 
 
 handleEvent :: UIState -> B.BrickEvent Name Event -> B.EventM Name (B.Next UIState)
