@@ -2,7 +2,8 @@ package = awssy
 stack_yaml = STACK_YAML="stack.yaml"
 stack = $(stack_yaml) stack
 
-all: build test lint
+all: build lint
+cabal-all: cabal-build lint
 
 setup:
 	$(stack) setup
@@ -20,6 +21,9 @@ check-nightly:
 build:
 	$(stack) build $(package) --no-run-tests
 
+cabal-build:
+	cabal new-build $(package) 
+
 build-dirty:
 	$(stack) build --ghc-options=-fforce-recomp $(package)
 
@@ -28,12 +32,6 @@ run:
 
 ghci:
 	$(stack) ghci $(package):exe
-
-test:
-	$(stack) test $(package)
-
-test-ghci:
-	$(stack) ghci $(package):test:$(package)-test
 
 bench:
 	$(stack) bench $(package)
