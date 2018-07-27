@@ -104,7 +104,7 @@ fetchInstances region = do
     Left e -> pure . Left . show $ e
     Right instances -> do
       let ec2is = mkInstance <$> instances
-      pure . Right $ (ec2is, Ae.encode ec2is)
+      pure . Right $ (sortOn (Txt.toLower . ec2Name) ec2is, Ae.encode ec2is)
 
   where
     mkInstance i = 
