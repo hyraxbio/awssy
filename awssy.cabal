@@ -1,10 +1,10 @@
 cabal-version:       2.2
 name:                awssy
-version:             0.2.1.6
--- synopsis:
+version:             0.2.1.7
+-- synopsis
 -- description:
 homepage:            https://github.com/hyraxbio/awssy#readme
-license:             BSD-3-Clause
+license:             BSD-3-Clause OR Apache-2.0
 license-file:        LICENSE
 author:              HyraxBio
 maintainer:          andre@andrevdm.com
