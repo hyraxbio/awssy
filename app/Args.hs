@@ -37,7 +37,7 @@ data Args = Args { _aKeyFile :: !FilePath
 makeLenses ''Args
 
 version :: Text
-version = "0.2.1.6"
+version = "0.2.1.8"
 
 runArgs :: (Args -> IO ()) -> IO ()
 runArgs run = do
