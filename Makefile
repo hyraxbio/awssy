@@ -2,8 +2,8 @@ package = awssy
 stack_yaml = STACK_YAML="stack.yaml"
 stack = $(stack_yaml) stack
 
-all: build lint
-cabal-all: cabal-build lint
+all: build 
+cabal-all: cabal-build 
 
 setup:
 	$(stack) setup
