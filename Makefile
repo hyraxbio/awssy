@@ -21,6 +21,9 @@ check-nightly:
 build:
 	$(stack) build $(package) --no-run-tests
 
+build-profile:
+	$(stack) --work-dir .stack-work-profiling --profile build
+
 cabal-build:
 	cabal new-build $(package) 
 
