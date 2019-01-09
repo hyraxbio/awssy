@@ -1,6 +1,6 @@
 cabal-version:       2.2
 name:                awssy
-version:             0.2.1.11
+version:             0.2.1.12
 -- synopsis
 -- description:
 homepage:            https://github.com/hyraxbio/awssy#readme
@@ -19,25 +19,25 @@ executable awssy
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wcompat -Wredundant-constraints
   other-modules:       Aws
                      , Args
-  build-depends:       base >= 4.10.1.0 && < 5.0
-                     , protolude >= 0.2.2 && < 0.2.3
-                     , text >= 1.2.3.0 && < 1.2.4.0
-                     , bytestring >= 0.10.8.2 && < 0.10.9.0
-                     , directory >= 1.3.0.2 && < 1.3.2.0
-                     , filepath >= 1.4.1.2 && < 1.4.2.0
-                     , aeson >= 1.3.1.1 && < 1.3.2.0
-                     , cmdargs >= 0.10.20 && < 0.11.0
-                     , containers >= 0.5.11.0 && < 0.5.12.0
-                     , data-default-class >= 0.1.2.0 && < 0.1.3.0
-                     , lens >= 4.16.1 && < 4.17.0
-                     , process >= 1.6.3.0 && < 1.6.4.0
-                     , req >= 1.1.0 && < 1.2.0
-                     , safe-exceptions >= 0.1.7.0 && < 0.1.8.0
-                     , temporary >= 1.3 && < 1.4
-                     , vector >= 0.12.0.1 && < 0.12.1.0
-                     , amazonka >= 1.6.0 && < 1.7.0
-                     , amazonka-core >= 1.6.0 && < 1.7.0
-                     , amazonka-ec2 >= 1.6.0 && < 1.7.0
+  build-depends:       base
+                     , protolude
+                     , text
+                     , bytestring
+                     , directory
+                     , filepath
+                     , aeson
+                     , cmdargs
+                     , containers
+                     , data-default-class
+                     , lens
+                     , process
+                     , req
+                     , safe-exceptions
+                     , temporary
+                     , vector
+                     , amazonka
+                     , amazonka-core
+                     , amazonka-ec2
                      , vty
                      , brick
   default-language:    Haskell2010
