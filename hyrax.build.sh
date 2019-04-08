@@ -19,4 +19,3 @@ cd docker
 #docker tag awssy localhost:5987/awssy_$branch_
 #docker push localhost:5987/awssy_$branch_
 ./buildDocker.sh "_$branch_"
-docker system prune -f
