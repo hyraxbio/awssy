@@ -14,8 +14,9 @@ root=$(stack path | grep local-install-root | cut -d' ' -f2-)
 aws s3 cp "$root/bin/awssy" "s3://hyrax-ci/awssy/bin/$branch/awssy"
 
 cd docker
-cp "$root/bin/awssy" awssy
-docker build --tag=awssy .
-docker tag awssy localhost:5987/awssy_$branch_
-docker push localhost:5987/awssy_$branch_
+#cp "$root/bin/awssy" awssy
+#docker build --tag=awssy .
+#docker tag awssy localhost:5987/awssy_$branch_
+#docker push localhost:5987/awssy_$branch_
+./buildDocker.sh "_$branch_"
 docker system prune -f
