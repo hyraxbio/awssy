@@ -151,7 +151,9 @@ uiMain args = do
     BCh.writeBChan chan EventTick
           
   -- Run brick
-  void $ B.customMain (V.mkVty V.defaultConfig) (Just chan) app st
+  let buildVty = V.mkVty V.defaultConfig
+  initialVty <- buildVty
+  void $ B.customMain initialVty buildVty (Just chan) app st
 
   where
     updateFromAws chan showErr started updated = 
