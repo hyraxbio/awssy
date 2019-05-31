@@ -1,4 +1,4 @@
-FROM hyrax_haskell_13_12 as build
+FROM hyrax_haskell_13_23 as build
 
 WORKDIR /root/temp/code
 COPY ./temp/code /root/temp/
