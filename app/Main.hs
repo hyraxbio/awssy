@@ -17,7 +17,6 @@ import qualified Data.Text as Txt
 import qualified Data.Text.Encoding as TxtE
 import qualified Data.Aeson as Ae
 import qualified Data.Vector as Vec
-import qualified Data.Default.Class as Def
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import           System.FilePath ((</>))
@@ -616,7 +615,7 @@ startShell args ip sg inst = do
 
 getIp :: IO Text
 getIp = do
-  ip <- R.runReq Def.def $ do
+  ip <- R.runReq R.defaultHttpConfig $ do
     r <- R.req
            R.GET
            (R.http "ipv4bot.whatismyipaddress.com")

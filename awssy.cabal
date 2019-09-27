@@ -1,6 +1,6 @@
 cabal-version:       2.2
 name:                awssy
-version:             0.2.1.15
+version:             0.2.1.16
 -- synopsis
 -- description:
 homepage:            https://github.com/hyraxbio/awssy#readme
@@ -28,7 +28,6 @@ executable awssy
                      , aeson
                      , cmdargs
                      , containers
-                     , data-default-class
                      , lens
                      , process
                      , req

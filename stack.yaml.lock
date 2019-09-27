@@ -5,50 +5,29 @@
 
 packages:
 - completed:
-    hackage: brick-0.47.1@sha256:de548e3c39cc393dafbc1ecfe788746103fe5233d5a69c2cca5da8ed819ba661,13868
+    hackage: amazonka-1.6.1@sha256:d863557379350ed6bbb91187abeb8c349a654f60b140d138710486f58ae7c476,3536
     pantry-tree:
-      size: 3752
-      sha256: bea3f31fbc18a56f0a78d3b27438eba5eb4a81d59c5ca120ddee4ca919183018
+      size: 992
+      sha256: 55747f9b56063ea1be73a962e1ce44528b9856e119e2d9f1238397b3112b6e70
   original:
-    hackage: brick-0.47.1
+    hackage: amazonka-1.6.1@sha256:d863557379350ed6bbb91187abeb8c349a654f60b140d138710486f58ae7c476,3536
 - completed:
-    hackage: vty-5.25.1@sha256:45ecd481dc319d68cf5969fc2ff18b22b8ae03f7534d94bd4bc8ad3dfe94fc3b,20267
+    hackage: amazonka-core-1.6.1@sha256:9bc59ce403c6eeba3b3eaf3f10e5f0b6a33b6edbbf8f6de0dd6f4c67b86fa698,5135
     pantry-tree:
-      size: 4868
-      sha256: c54859d2d094eb90862e08b7d9bd80ef6cd16cc4b848d2c682fb4e9ead2187ce
+      size: 3438
+      sha256: c13e643176308771491ec0e06390e269047bb1b28be4535992842f7426a95eb4
   original:
-    hackage: vty-5.25.1
+    hackage: amazonka-core-1.6.1@sha256:9bc59ce403c6eeba3b3eaf3f10e5f0b6a33b6edbbf8f6de0dd6f4c67b86fa698,5135
 - completed:
-    hackage: config-ini-0.2.4.0@sha256:38a6d484d471c6fac81445de2eac8c4e8c82760962fca5491ae1c3bfca9c4047,3232
+    hackage: amazonka-ec2-1.6.1@sha256:208908e8a30937a3ec640e8b53de2708d805a28c3900dbf447db12a61d9b7a50,16305
     pantry-tree:
-      size: 886
-      sha256: b608472507ec84e468f768acab36d8c85b46bcf918f2a60604fff46137160d2d
+      size: 67057
+      sha256: e46eaecb67eef0f7bdfa37120e54cc9633c2940cca8be4377eb93eecaa511a96
   original:
-    hackage: config-ini-0.2.4.0@sha256:38a6d484d471c6fac81445de2eac8c4e8c82760962fca5491ae1c3bfca9c4047
-- completed:
-    hackage: data-clist-0.1.2.2@sha256:4d70add0a200a178853cd37c6469101bac3c36aebb3aa9c503ff225211b1a8c9,936
-    pantry-tree:
-      size: 219
-      sha256: 1ebcc75682379366f03666c2de30d04ef49684b48bd4529afdc5bfa750b4af61
-  original:
-    hackage: data-clist-0.1.2.2@sha256:4d70add0a200a178853cd37c6469101bac3c36aebb3aa9c503ff225211b1a8c9
-- completed:
-    hackage: text-zipper-0.10.1@sha256:8b73a97a3717a17df9b0a722b178950c476ff2268ca5c583e99d010c94af849e,1471
-    pantry-tree:
-      size: 600
-      sha256: ebd5f0e2fc8c59b1bde6706cef1fdb012d52bb26b3953a97a4fa6502f56cdd65
-  original:
-    hackage: text-zipper-0.10.1@sha256:8b73a97a3717a17df9b0a722b178950c476ff2268ca5c583e99d010c94af849e
-- completed:
-    hackage: word-wrap-0.4.1@sha256:f72233b383ef569c557bfd9812cbb8e306c415ce509082c0bd15ee51c0239ccc,1606
-    pantry-tree:
-      size: 423
-      sha256: dcf5071895ee477e60e3c9de1e30eb711e11e9a7335db160616f80baeb20ad71
-  original:
-    hackage: word-wrap-0.4.1@sha256:f72233b383ef569c557bfd9812cbb8e306c415ce509082c0bd15ee51c0239ccc
+    hackage: amazonka-ec2-1.6.1@sha256:208908e8a30937a3ec640e8b53de2708d805a28c3900dbf447db12a61d9b7a50,16305
 snapshots:
 - completed:
-    size: 500539
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/13/29.yaml
-    sha256: 006398c5e92d1d64737b7e98ae4d63987c36808814504d1451f56ebd98093f75
-  original: lts-13.29
+    size: 523700
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/14/7.yaml
+    sha256: 8e3f3c894be74d71fa4bf085e0a8baae7e4d7622d07ea31a52736b80f8b9bb1a
+  original: lts-14.7
