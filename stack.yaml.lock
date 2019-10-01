@@ -19,12 +19,21 @@ packages:
   original:
     hackage: amazonka-core-1.6.1@sha256:9bc59ce403c6eeba3b3eaf3f10e5f0b6a33b6edbbf8f6de0dd6f4c67b86fa698,5135
 - completed:
-    hackage: amazonka-ec2-1.6.1@sha256:208908e8a30937a3ec640e8b53de2708d805a28c3900dbf447db12a61d9b7a50,16305
+    subdir: amazonka-ec2
+    cabal-file:
+      size: 16305
+      sha256: 208908e8a30937a3ec640e8b53de2708d805a28c3900dbf447db12a61d9b7a50
+    name: amazonka-ec2
+    version: 1.6.1
+    git: git@github.com:hyraxbio/amazonka.git
     pantry-tree:
-      size: 67057
-      sha256: e46eaecb67eef0f7bdfa37120e54cc9633c2940cca8be4377eb93eecaa511a96
+      size: 67103
+      sha256: 28b565c9d735b46aeb5508f76bdcbb5f027c6c4b62fc1244611d52eb3c966e06
+    commit: 496d71444cd8403cca97de5f2b744d16c4cb4917
   original:
-    hackage: amazonka-ec2-1.6.1@sha256:208908e8a30937a3ec640e8b53de2708d805a28c3900dbf447db12a61d9b7a50,16305
+    subdir: amazonka-ec2
+    git: git@github.com:hyraxbio/amazonka.git
+    commit: 496d71444cd8403cca97de5f2b744d16c4cb4917
 snapshots:
 - completed:
     size: 523700

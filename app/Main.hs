@@ -14,6 +14,7 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.List as Lst
 import qualified Data.Text as Txt
+import qualified Data.Text.IO as Txt
 import qualified Data.Text.Encoding as TxtE
 import qualified Data.Aeson as Ae
 import qualified Data.Vector as Vec
@@ -168,6 +169,7 @@ uiMain args = do
           BCh.writeBChan chan $ EventStatus ""
 
         Left e -> do
+          Txt.writeFile "/home/andre/temp/a.txt" e
           p <- getLastResultFilePath
           if args ^. Args.aAllowCache
           then 
