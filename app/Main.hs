@@ -169,7 +169,7 @@ uiMain args = do
           BCh.writeBChan chan $ EventStatus ""
 
         Left e -> do
-          Txt.writeFile "/home/andre/temp/a.txt" e
+          Txt.writeFile "awssy.error.log" e
           p <- getLastResultFilePath
           if args ^. Args.aAllowCache
           then 
