@@ -28,12 +28,12 @@ packages:
     git: git@github.com:hyraxbio/amazonka.git
     pantry-tree:
       size: 67103
-      sha256: 28b565c9d735b46aeb5508f76bdcbb5f027c6c4b62fc1244611d52eb3c966e06
-    commit: 496d71444cd8403cca97de5f2b744d16c4cb4917
+      sha256: 42bfb2d142841c427abe4742398cc272754101299f2d886bfcf46158133ec95a
+    commit: 97327edbd0af4452b9b62420e4cda097da918f8e
   original:
     subdir: amazonka-ec2
     git: git@github.com:hyraxbio/amazonka.git
-    commit: 496d71444cd8403cca97de5f2b744d16c4cb4917
+    commit: 97327edbd0af4452b9b62420e4cda097da918f8e
 snapshots:
 - completed:
     size: 523700
