@@ -37,7 +37,7 @@ data Args = Args { _aKeyFile :: !FilePath
 makeLenses ''Args
 
 version :: Text
-version = "0.2.1.19"
+version = "0.2.1.20"
 
 runArgs :: (Args -> IO ()) -> IO ()
 runArgs run = do
@@ -68,7 +68,7 @@ parseOpts opts = do
         if Txt.null (user opts)
         then "ec2-user"
         else user opts
-  
+
   pure Args { _aKeyFile = Txt.unpack keyFile
             , _aAllowCache = cache opts
             , _aUser = userName
@@ -78,7 +78,7 @@ parseOpts opts = do
 mkArgs :: Opts
 mkArgs =
   let
-    opts = Opts { key    = ""         &= A.name "k" &= A.help "ssh pem file" 
+    opts = Opts { key    = ""         &= A.name "k" &= A.help "ssh pem file"
                 , cache  = False      &= A.name "c" &= A.help "allow cached instance list"
                 , user   = "ec2-user" &= A.name "u" &= A.help "AWS user"
                 , region = ""         &= A.name "r" &= A.help "AWS region"

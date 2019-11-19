@@ -39,7 +39,7 @@ import qualified Graphics.Vty as V
 import qualified Graphics.Vty.Input.Events as K
 
 import qualified Aws as A
-import qualified Args 
+import qualified Args
 
 spinner :: [Text]
 spinner = ["|", "/", "-", "\\"]
@@ -92,7 +92,7 @@ main = Args.runArgs tryUiMain
 catch' :: ByteString -> IO a -> (SomeException -> IO a) -> IO a
 catch' name f h =
   catch f (\(e :: SomeException) -> handler e)
-  
+
   where
     handler e = do
       BS.writeFile "awssy.error.log" $ TxtE.encodeUtf8 Args.version <> "\n" <>  name <> "\n\n" <> show e
@@ -108,7 +108,7 @@ tryUiMain args =
       putText "Exception running awssy"
       putText "  Exception written to awssy.error.log"
       print e
-  
+
 
 uiMain :: Args.Args -> IO ()
 uiMain args = do
@@ -144,21 +144,21 @@ uiMain args = do
 
   void . forkIO $ forever $ do
     updateFromAws chan showErr started Nothing
-    threadDelay $ 1000000 * 60 * 5 
-          
+    threadDelay $ 1000000 * 60 * 5
+
   void . forkIO $ forever $ do
     threadDelay 500000
     BCh.writeBChan chan EventTick
-          
+
   -- Run brick
   let buildVty = V.mkVty V.defaultConfig
   initialVty <- buildVty
   void $ B.customMain initialVty buildVty (Just chan) app st
 
   where
-    updateFromAws chan showErr started updated = 
+    updateFromAws chan showErr started updated =
       catch' "updateFromAws" (updateFromAws' chan showErr started updated) (showErr . show)
-      
+
     updateFromAws' chan showErr started updated = do
       BCh.writeBChan chan $ EventStatus "fetching from aws..."
       A.fetchInstances (args ^. Args.aRegion) >>= \case
@@ -172,7 +172,7 @@ uiMain args = do
           Txt.writeFile "awssy.error.log" e
           p <- getLastResultFilePath
           if args ^. Args.aAllowCache
-          then 
+          then
             Dir.doesFileExist p >>= \case
               False -> showErr e
               True -> do
@@ -243,7 +243,7 @@ handleEvent st ev =
                 _ -> do
                   r <- BL.handleListEventVi BL.handleListEvent ve $ st ^. uiInstances
                   let selected = snd <$> BL.listSelectedElement r
-  
+
                   let st1 = st & uiInstances .~ r & uiSelectedInstance .~ selected
                   let st2 = st1 & uiForwards .~ BL.list NameForwardsList (Vec.fromList $ maybe [] (\(_, e) -> A.ec2PortForwards e) (BL.listSelectedElement $ st1 ^. uiInstances)) 1
                   B.continue . clearForwardsEdits $ st2
@@ -262,14 +262,14 @@ handleEvent st ev =
                     (_, Nothing) -> B.continue $ st & uiAddError .~ "Invalid remote port"
                     (Just localPort', Just remotePort') ->
                       B.continue . clearForwardsEdits . updateForwards $ st & uiForwards %~ BL.listInsert 0 (localPort', remoteHost, remotePort')
-                    
+
                 _ -> B.continue st
 
             Just NameForwardsList ->
               case k of
                 K.KChar '\t' -> B.continue $ st & uiFocus %~ BF.focusNext
                 K.KBackTab -> B.continue . clearForwardsEdits $ st & uiFocus %~ BF.focusPrev
-                K.KDel -> 
+                K.KDel ->
                   case st ^. (uiForwards . BL.listSelectedL) of
                     Nothing -> B.continue st
                     Just i -> B.continue . updateForwards $ st & uiForwards %~ BL.listRemove i
@@ -284,19 +284,19 @@ handleEvent st ev =
 
             _ -> B.continue st
 
-    (B.AppEvent (EventStatus s)) -> 
+    (B.AppEvent (EventStatus s)) ->
       B.continue $ st & uiStatus .~ s
 
     (B.AppEvent (EventUpdate is')) -> do
       is <- liftIO $ applySettings is'
       B.continue $ applyUpdate st is
-  
+
     (B.AppEvent (EventStarted n)) ->
       B.continue $ st & uiStarting %~ filter (/= n)
-  
+
     (B.AppEvent EventTick) ->
       B.continue $ st & uiTickCount %~ (\c -> c + 1 `mod` 100)
-  
+
     _ -> B.continue st
 
   where
@@ -313,7 +313,7 @@ handleEvent st ev =
       let forwards = Vec.toList $ st' ^. (uiForwards . BL.listElementsL) in
       st' & uiInstances .~ BL.listModify (\e -> e { A.ec2PortForwards = forwards }) (st' ^. uiInstances)
           & uiSelectedInstance . _Just %~ (\e -> e { A.ec2PortForwards = forwards })
-      
+
     clearForwardsEdits st' =
       st' & uiAddError .~ ""
           & uiEditForwardLocalPort .~ BE.editor NameForwardLocalPort (Just 1) ""
@@ -335,7 +335,7 @@ applyUpdate st0 es = do
   let updatedInstances' = foldr (updateInstance origInstances) [] es
   -- Remove terminated irgsnstances
   let updatedInstances = filter (\u -> A.ec2State u /= "terminated") updatedInstances'
-  
+
   -- Use the newly updated instances
   let st1 = st0 & uiInstances .~ BL.list NameInstances (Vec.fromList updatedInstances) 1
 
@@ -369,12 +369,12 @@ applyUpdate st0 es = do
 
         -- Updating, use in memory forwards
         Just old -> inst { A.ec2PortForwards = A.ec2PortForwards old } : a
-      
+
 
 -- | Draw the UI
 drawUI :: UIState -> [B.Widget Name]
 drawUI st =
-  [B.padTop (B.Pad 1) $ B.padLeft (B.Pad 1) $ B.padRight (B.Pad 1) $ contentBlock] 
+  [B.padTop (B.Pad 1) $ B.padLeft (B.Pad 1) $ B.padRight (B.Pad 1) $ contentBlock]
 
   where
     contentBlock =
@@ -420,7 +420,7 @@ drawUI st =
       (block "Port Forwarding" (B.hLimit 30 $ settingsForwardList))
       <+>
       (B.padLeft (B.Pad 3) $ B.hLimit 60 $ settingsAddBlock)
-      
+
     settingsAddBlock =
       (block "New Port Forward" settingsAddForward)
       <=>
@@ -442,7 +442,7 @@ drawUI st =
       )
 
     settingsForwardList =
-      BL.renderList (\_ (l, rh, rp) -> B.txt $ show l <> " <- " <> rh <> ":" <> show rp) (BF.focusGetCurrent (st ^. uiFocus) == Just NameForwardsList) (st ^. uiForwards)
+      BL.renderList (\_ (l, rh, rp) -> B.txt $ show l <> " -> " <> rh <> ":" <> show rp) (BF.focusGetCurrent (st ^. uiFocus) == Just NameForwardsList) (st ^. uiForwards)
 
     errorAdd =
       B.withAttr "messageError" $ B.txt $ st ^. uiAddError
@@ -515,7 +515,7 @@ drawUI st =
 
     bottomBarRight =
       B.withAttr "messageInfo" $ B.txt $ st ^. uiStatus
-      
+
     titleTxt t =
       B.withAttr "titleText" $ txt t
 
@@ -524,15 +524,15 @@ drawUI st =
 
     txt t =
       B.txt $ if Txt.null t then " " else t
-  
+
     statusTxt t =
       B.withAttr (BA.attrName $ "status_" <> Txt.unpack t) $ txt t
-  
+
     --htitle t =
     --  B.hLimit 20 $
     --  B.withAttr "infoTitle" $
     --  B.txt t
-      
+
     vtitle t =
       B.withAttr "infoTitle" $
       B.txt t
@@ -574,14 +574,14 @@ exec cmds = A.execWait' "sh" Nothing Nothing ["-c", Txt.intercalate "; " cmds]
 
 
 startSh :: Args.Args -> Text -> Text -> IO () -> IO ()
-startSh opts ip sg fn = 
+startSh opts ip sg fn =
   bracket_ (A.sshIngress (opts ^. Args.aRegion) ip sg) (A.sshRevokeIngress (opts ^. Args.aRegion) ip sg) fn
 
 
 startSsh :: Args.Args -> Text -> Text -> A.Ec2Instance -> IO ()
-startSsh opts ip sg inst = 
+startSsh opts ip sg inst =
   startSh opts ip sg $ do
-    let fs = (\(l, h, r) -> "-L " <> show l <> ":" <> h <> ":" <> show r) <$> A.ec2PortForwards inst 
+    let fs = (\(l, h, r) -> "-L " <> show l <> ":" <> h <> ":" <> show r) <$> A.ec2PortForwards inst
     let args = Txt.intercalate " " fs
 
     void $ exec [ "echo ssh -i " <> Txt.pack (opts ^. Args.aKeyFile) <> " " <> opts ^. Args.aUser <> "@" <> A.ec2PublicIpAddress inst <> " " <> args
@@ -633,7 +633,7 @@ getIp = do
 applySettings :: [A.Ec2Instance] -> IO [A.Ec2Instance]
 applySettings es = do
   settingsPath <- getSettingsFilePath
-  
+
   Dir.doesFileExist settingsPath >>= \case
     False -> pure es
     True -> do
@@ -647,8 +647,8 @@ applySettings es = do
       case Map.lookup (A.ec2Name e) ss of
         Nothing -> e
         Just s -> e { A.ec2PortForwards = s }
-          
- 
+
+
 getLastResultFilePath :: IO FilePath
 getLastResultFilePath = do
   p <- getSettingsRootPath
