@@ -28,15 +28,15 @@ packages:
     git: git@github.com:hyraxbio/amazonka.git
     pantry-tree:
       size: 67103
-      sha256: 1fb9a265b9ef6277f7ea21604c4db064da82f0573ec582803ba7d772fe99f3ba
-    commit: 8393764f679d3bc4d04e0917a8e5108ce3ca179e
+      sha256: 4cd2bf0fd01e8503ee36b484f045be83d98ac9c0abfa7c163a3749d698f81cd0
+    commit: aebaac9ee297821ffc831d411e9f6c10a2604b70
   original:
     subdir: amazonka-ec2
     git: git@github.com:hyraxbio/amazonka.git
-    commit: 8393764f679d3bc4d04e0917a8e5108ce3ca179e
+    commit: aebaac9ee297821ffc831d411e9f6c10a2604b70
 snapshots:
 - completed:
-    size: 524804
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/14/16.yaml
-    sha256: 4d1519a4372d051d47a5eae2241cf3fb54e113d7475f89707ddb6ec06add2888
-  original: lts-14.16
+    size: 491389
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/15/7.yaml
+    sha256: 92ab6303fe20ec928461c82ce0980b4d17c06f4e66205a2967e476474f686c17
+  original: lts-15.7
