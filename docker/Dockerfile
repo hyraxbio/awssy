@@ -43,7 +43,12 @@ RUN cd /root/temp/code && \
 FROM ubuntu:19.04
 
 RUN apt-get update
-RUN apt-get install -y netbase ca-certificates openssh-client
+RUN apt-get install -y netbase ca-certificates openssh-client mosh locales locales-all
+
+#Set the locale
+ENV LC_ALL en_US.UTF-8
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US.UTF-8
 
 COPY ./runAwssy.sh /usr/bin/runAwssy
 COPY ./settings.js /root/.local/share/awssy/settings.js
