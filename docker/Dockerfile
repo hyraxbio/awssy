@@ -1,4 +1,4 @@
-FROM ubuntu:19.04 as build
+FROM hyrax-compiler as build
 
 ENV TZ=Africa/Johannesburg
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -18,8 +18,6 @@ RUN apt-get update && apt-get install -y \
     libtinfo-dev
 
 RUN apt-get update && apt-get install -y postgresql-server-dev-all libpq-dev
-
-RUN curl -sSL https://get.haskellstack.org/ | sh
 
 WORKDIR /root
 RUN mkdir temp && \
