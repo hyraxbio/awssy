@@ -12,6 +12,7 @@ module Args ( runArgs
             , aAllowCache
             , aUser
             , aRegion
+            , aUseMosh
             ) where
 
 import           Protolude
@@ -24,12 +25,14 @@ import qualified Network.AWS.Types as AWS
 
 data Opts = Opts { key :: !Text
                  , cache :: !Bool
+                 , mosh :: !Bool
                  , user :: !Text
                  , region :: !Text
                  } deriving (A.Data, Typeable)
 
 data Args = Args { _aKeyFile :: !FilePath
                  , _aAllowCache :: !Bool
+                 , _aUseMosh :: !Bool
                  , _aUser :: !Text
                  , _aRegion :: !AWS.Region
                  } deriving (Show)
@@ -37,7 +40,7 @@ data Args = Args { _aKeyFile :: !FilePath
 makeLenses ''Args
 
 version :: Text
-version = "0.2.1.26"
+version = "0.2.1.27"
 
 runArgs :: (Args -> IO ()) -> IO ()
 runArgs run = do
@@ -73,6 +76,7 @@ parseOpts opts = do
             , _aAllowCache = cache opts
             , _aUser = userName
             , _aRegion = awsRegion
+            , _aUseMosh = mosh opts
             }
 
 mkArgs :: Opts
@@ -80,6 +84,7 @@ mkArgs =
   let
     opts = Opts { key    = ""         &= A.name "k" &= A.help "ssh pem file"
                 , cache  = False      &= A.name "c" &= A.help "allow cached instance list"
+                , mosh   = False      &= A.name "m" &= A.help "use mosh rather than ssh"
                 , user   = "ec2-user" &= A.name "u" &= A.help "AWS user"
                 , region = ""         &= A.name "r" &= A.help "AWS region"
                 }
@@ -88,7 +93,7 @@ mkArgs =
     _PROGRAM_VERSION = Txt.unpack version
     _PROGRAM_INFO = _PROGRAM_NAME <> " version " <> _PROGRAM_VERSION
     _PROGRAM_ABOUT = "awssy: aws terminal GUI"
-    _COPYRIGHT = "(C) 2018 HyraxBio"
+    _COPYRIGHT = "(C) 2018-2020 HyraxBio"
   in
     opts
     &= A.versionArg [A.explicit, A.name "version", A.summary _PROGRAM_INFO]

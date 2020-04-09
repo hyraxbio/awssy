@@ -16,6 +16,7 @@ module Aws ( Ec2Instance (..)
 
 import           Protolude
 import qualified Data.Text as Txt
+import qualified Data.Text.IO as Txt
 import qualified Data.Aeson as Ae
 import qualified Data.ByteString.Lazy as BSL
 import qualified System.IO as IO
@@ -48,7 +49,7 @@ execWait bin cwd env args = do
   stdout' <- IO.hGetContents outp
   stderr' <- IO.hGetContents errp
   pure (exitCode, Txt.pack stdout', Txt.pack stderr')
-  
+
 
 exec :: FilePath -> Maybe FilePath -> Maybe [(Text, Text)] -> [Text] -> IO (Handle, Handle, Proc.ProcessHandle)
 exec bin cwd env args = do
@@ -68,7 +69,7 @@ execWait' :: FilePath -> Maybe FilePath -> Maybe [(Text, Text)] -> [Text] -> IO 
 execWait' bin cwd env args = do
   phandle <- exec' bin cwd env args
   Proc.waitForProcess phandle
-  
+
 
 exec' :: FilePath -> Maybe FilePath -> Maybe [(Text, Text)] -> [Text] -> IO Proc.ProcessHandle
 exec' bin cwd env args = do
@@ -107,14 +108,14 @@ fetchInstances region = do
       pure . Right $ (sortOn (Txt.toLower . ec2Name) ec2is, Ae.encode ec2is)
 
   where
-    mkInstance i = 
+    mkInstance i =
         Ec2Instance { ec2ImageId = i ^. EC2.insImageId
                     , ec2InstanceId = i ^. EC2.insInstanceId
                     , ec2InstanceType = show $ i ^. EC2.insInstanceType
                     , ec2LaunchTime = show $ i ^. EC2.insLaunchTime --TODO format
                     , ec2SubnetId = fromMaybe "" $ i ^. EC2.insSubnetId
                     , ec2VpcId = fromMaybe "" $ i ^. EC2.insVPCId
-                    , ec2Architecture = show $ i ^. EC2.insArchitecture 
+                    , ec2Architecture = show $ i ^. EC2.insArchitecture
                     , ec2PublicDnsName = fromMaybe "" $ i ^. EC2.insPublicDNSName
                     , ec2PublicIpAddress = fromMaybe "" $ i ^. EC2.insPublicIPAddress
                     , ec2Name = getTag "Name" $  i ^. EC2.insTags
@@ -128,7 +129,7 @@ fetchInstances region = do
       case filter (\t -> t ^. EC2.tagKey == n) ts of
         (t:_) -> t ^. EC2.tagValue
         _ -> ""
-        
+
 
     getSecGroup gs =
       let
@@ -156,7 +157,7 @@ sshIngress region ip secGroupId = do
 
   print r --TODO
 
-  
+
 sshRevokeIngress :: AWS.Region -> Text -> Text -> IO ()
 sshRevokeIngress region ip secGroupId = do
   env <- AWS.newEnv AWS.Discover <&> set AWS.envRegion region

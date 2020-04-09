@@ -584,8 +584,13 @@ startSsh opts ip sg inst =
     let fs = (\(l, h, r) -> "-L " <> show l <> ":" <> h <> ":" <> show r) <$> A.ec2PortForwards inst
     let args = Txt.intercalate " " fs
 
-    void $ exec [ "echo ssh -i " <> Txt.pack (opts ^. Args.aKeyFile) <> " " <> opts ^. Args.aUser <> "@" <> A.ec2PublicIpAddress inst <> " " <> args
-                , "ssh -i " <> Txt.pack (opts ^. Args.aKeyFile) <> " " <> opts ^. Args.aUser <> "@" <> A.ec2PublicIpAddress inst <> " " <> args
+    let cmd =
+         if opts ^. Args.aUseMosh
+         then "mosh --ssh=\"ssh -i " <> Txt.pack (opts ^. Args.aKeyFile) <> "\" " <> opts ^. Args.aUser <> "@" <> A.ec2PublicIpAddress inst <> " " <> args
+         else "ssh -i " <> Txt.pack (opts ^. Args.aKeyFile) <> " " <> opts ^. Args.aUser <> "@" <> A.ec2PublicIpAddress inst <> " " <> args
+
+    void $ exec [ "echo " <> cmd
+                , cmd
                 ]
 
 
