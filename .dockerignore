@@ -1,0 +1,13 @@
+Dockerfile
+.gitignore
+.dockerignore
+.git
+_build
+_tmp
+deps
+.stack-work/
+.stack-work-profiling/
+dist-newstyle/
+docker/
+Dockerfile.build-context
+stack.yaml.lock
