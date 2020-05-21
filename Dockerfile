@@ -6,7 +6,7 @@ RUN stack build && stack install
 
 FROM hyrax-base
 
-RUN apt-get update && apt-get install -y netbase ca-certificates openssh-client locales locales-all
+RUN apt-get update && apt-get install -y netbase ca-certificates openssh-client locales locales-all mosh
 
 #Set the locale
 ENV LC_ALL en_US.UTF-8
