@@ -12,7 +12,7 @@ module Args ( runArgs
             , aAllowCache
             , aUser
             , aRegion
-            , aUseMosh
+            , aUseEt
             ) where
 
 import           Protolude
@@ -25,14 +25,14 @@ import qualified Network.AWS.Types as AWS
 
 data Opts = Opts { key :: !Text
                  , cache :: !Bool
-                 , mosh :: !Bool
+                 , et :: !Bool
                  , user :: !Text
                  , region :: !Text
                  } deriving (A.Data, Typeable)
 
 data Args = Args { _aKeyFile :: !FilePath
                  , _aAllowCache :: !Bool
-                 , _aUseMosh :: !Bool
+                 , _aUseEt :: !Bool
                  , _aUser :: !Text
                  , _aRegion :: !AWS.Region
                  } deriving (Show)
@@ -40,7 +40,7 @@ data Args = Args { _aKeyFile :: !FilePath
 makeLenses ''Args
 
 version :: Text
-version = "0.2.1.27"
+version = "0.2.1.28"
 
 runArgs :: (Args -> IO ()) -> IO ()
 runArgs run = do
@@ -76,7 +76,7 @@ parseOpts opts = do
             , _aAllowCache = cache opts
             , _aUser = userName
             , _aRegion = awsRegion
-            , _aUseMosh = mosh opts
+            , _aUseEt = et opts
             }
 
 mkArgs :: Opts
@@ -84,7 +84,7 @@ mkArgs =
   let
     opts = Opts { key    = ""         &= A.name "k" &= A.help "ssh pem file"
                 , cache  = False      &= A.name "c" &= A.help "allow cached instance list"
-                , mosh   = False      &= A.name "m" &= A.help "use mosh rather than ssh"
+                , et     = False      &= A.name "m" &= A.help "use eternalterminal rather than ssh"
                 , user   = "ec2-user" &= A.name "u" &= A.help "AWS user"
                 , region = ""         &= A.name "r" &= A.help "AWS region"
                 }

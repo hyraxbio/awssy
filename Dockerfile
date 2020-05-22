@@ -6,7 +6,13 @@ RUN stack build && stack install
 
 FROM hyrax-base
 
-RUN apt-get update && apt-get install -y netbase ca-certificates openssh-client locales locales-all mosh
+RUN apt-get update && apt-get install -y netbase ca-certificates openssh-client locales locales-all software-properties-common && \
+    add-apt-repository ppa:jgmath2000/et && \
+    apt-get update && \
+    apt-get install -y et && \
+    apt-get autoremove --purge && \
+    apt-get -y clean && \
+    rm -rf /var/lib/apt/lists/*
 
 #Set the locale
 ENV LC_ALL en_US.UTF-8

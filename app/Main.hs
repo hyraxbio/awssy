@@ -585,8 +585,8 @@ startSsh opts ip sg inst =
     let args = Txt.intercalate " " fs
 
     let cmd =
-         if opts ^. Args.aUseMosh
-         then "mosh --ssh=\"ssh -i " <> Txt.pack (opts ^. Args.aKeyFile) <> "\" " <> opts ^. Args.aUser <> "@" <> A.ec2PublicIpAddress inst <> " " <> args
+         if opts ^. Args.aUseEt
+         then "ssh-add \"" <> Txt.pack (opts ^. Args.aKeyFile) <> "\" && et " <> opts ^. Args.aUser <> "@" <> A.ec2PublicIpAddress inst <> " " <> args
          else "ssh -i " <> Txt.pack (opts ^. Args.aKeyFile) <> " " <> opts ^. Args.aUser <> "@" <> A.ec2PublicIpAddress inst <> " " <> args
 
     void $ exec [ "echo " <> cmd
