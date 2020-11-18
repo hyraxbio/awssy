@@ -53,7 +53,7 @@ ENV LANGUAGE en_US.UTF-8
 COPY ./runAwssy.sh /usr/bin/runAwssy
 COPY ./settings.js /root/.local/share/awssy/settings.js
 
-COPY --from=build /root/.local/bin/awssy /usr/bin/awssy
+COPY --from=builder /root/.local/bin/awssy /usr/bin/awssy
 
 WORKDIR /
 ENTRYPOINT ["/usr/bin/runAwssy"]
