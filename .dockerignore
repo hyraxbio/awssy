@@ -4,6 +4,8 @@ Dockerfile
 .git
 _build
 _tmp
+tmp
+temp
 deps
 .stack-work/
 .stack-work-profiling/
@@ -11,3 +13,7 @@ dist-newstyle/
 docker/
 Dockerfile.build-context
 stack.yaml.lock
+
+
+
+.gitmodules
