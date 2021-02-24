@@ -45,7 +45,7 @@ extra-deps:
     #  - amazonka-ec2-1.6.1@sha256:208908e8a30937a3ec640e8b53de2708d805a28c3900dbf447db12a61d9b7a50,16305
   
   - git: https://github.com/hyraxbio/amazonka.git
-    commit: 071844a32411026a1f68a6254896ef3d129f997a
+    commit: ba6f486a2f6af1fd80aac64317d490a817471e21
     subdirs:
       - amazonka-ec2
 

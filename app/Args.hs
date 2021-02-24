@@ -40,7 +40,7 @@ data Args = Args { _aKeyFile :: !FilePath
 makeLenses ''Args
 
 version :: Text
-version = "0.2.1.29"
+version = "0.2.1.33"
 
 runArgs :: (Args -> IO ()) -> IO ()
 runArgs run = do
@@ -93,7 +93,7 @@ mkArgs =
     _PROGRAM_VERSION = Txt.unpack version
     _PROGRAM_INFO = _PROGRAM_NAME <> " version " <> _PROGRAM_VERSION
     _PROGRAM_ABOUT = "awssy: aws terminal GUI"
-    _COPYRIGHT = "(C) 2018-2020 HyraxBio"
+    _COPYRIGHT = "(C) 2018-2021 HyraxBio"
   in
     opts
     &= A.versionArg [A.explicit, A.name "version", A.summary _PROGRAM_INFO]
