@@ -284,13 +284,14 @@ awsGetInstances = do
   (js,_) <- Pt.readProcess_ "aws ec2 describe-instances"
   let
     -- All instances that are not stopped
-    instances' = js ^.. key "Reservations" . _Array . traversed . key "Instances" . _Array . traversed . filtered (\i -> i ^? key "State" . key "Name" . _String /= Just "stopped")
+    instances1 = js ^.. key "Reservations" . _Array . traversed . key "Instances" . _Array . traversed -- . filtered (\i -> i ^? key "State" . key "Name" . _String /= Just "stopped")
     -- Add an "__InstanceName" property
-    instances = instances' & traversed . _Object %~ \i ->
+    instances2 = instances1 & traversed . _Object %~ \i ->
       let keyName = fromMaybe Ae.Null . headMay $ i ^.. ix "Tags" . _Array . traversed . filtered (\t -> t ^? key "Key" . _String == Just "Name") in
       i & at "__InstanceName" .~ (keyName ^? key "Value")
+    instances3 = sortOn (\v -> v ^? key "__InstanceName" . _String) instances2
 
-  pure instances
+  pure instances3
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
