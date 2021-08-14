@@ -5,42 +5,42 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Args ( runArgs
-            , version
-            , Args (..)
-            , aKeyFile
-            , aAllowCache
-            , aUser
-            , aRegion
-            , aUseEt
-            ) where
+module Args
+  ( runArgs
+  , version
+  , Args (..)
+  , aKeyFile
+  , aUser
+  , aRegion
+  , aUseEt
+  ) where
 
 import           Protolude
 import qualified Data.Text as Txt
+import qualified Data.Version as Ver
 import           Control.Lens.TH (makeLenses)
 import           System.Console.CmdArgs ((&=))
 import qualified System.Console.CmdArgs as A
 import qualified System.Directory as Dir
-import qualified Network.AWS.Types as AWS
+
+import qualified Paths_awssy as Paths
 
 data Opts = Opts { key :: !Text
-                 , cache :: !Bool
                  , et :: !Bool
                  , user :: !Text
                  , region :: !Text
                  } deriving (A.Data, Typeable)
 
 data Args = Args { _aKeyFile :: !FilePath
-                 , _aAllowCache :: !Bool
                  , _aUseEt :: !Bool
                  , _aUser :: !Text
-                 , _aRegion :: !AWS.Region
+                 , _aRegion :: !Text
                  } deriving (Show)
 
 makeLenses ''Args
 
 version :: Text
-version = "0.2.1.33"
+version = Txt.pack $ Ver.showVersion Paths.version
 
 runArgs :: (Args -> IO ()) -> IO ()
 runArgs run = do
@@ -52,10 +52,7 @@ runArgs run = do
 
 parseOpts :: Opts -> ExceptT Text IO Args
 parseOpts opts = do
-  awsRegion <-
-    case readMaybe (Txt.unpack $ region opts) :: Maybe AWS.Region of
-      Just r -> pure r
-      Nothing -> throwE "Invalid region, please use one of: Beijing, Frankfurt, GovCloud, GovCloudFIPS, Ireland, London, Montreal, Mumbai, NorthCalifornia, NorthVirginia, Ohio, Oregon, SaoPaulo, Seoul, Singapore, Sydney, Tokyo"
+  let awsRegion = region opts
 
   keyFile <- do
     let path = if Txt.null (key opts)
@@ -73,7 +70,6 @@ parseOpts opts = do
         else user opts
 
   pure Args { _aKeyFile = Txt.unpack keyFile
-            , _aAllowCache = cache opts
             , _aUser = userName
             , _aRegion = awsRegion
             , _aUseEt = et opts
@@ -83,7 +79,6 @@ mkArgs :: Opts
 mkArgs =
   let
     opts = Opts { key    = ""         &= A.name "k" &= A.help "ssh pem file"
-                , cache  = False      &= A.name "c" &= A.help "allow cached instance list"
                 , et     = False      &= A.name "m" &= A.help "use eternalterminal rather than ssh"
                 , user   = "ec2-user" &= A.name "u" &= A.help "AWS user"
                 , region = ""         &= A.name "r" &= A.help "AWS region"

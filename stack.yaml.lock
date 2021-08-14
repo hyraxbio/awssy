@@ -5,32 +5,30 @@
 
 packages:
 - completed:
-    hackage: amazonka-1.6.1@sha256:d863557379350ed6bbb91187abeb8c349a654f60b140d138710486f58ae7c476,3536
+    hackage: strip-ansi-escape-0.1.0.0@sha256:08f2ed93b16086a837ec46eab7ce8d27cf39d47783caaeb818878ea33c2ff75f,1628
     pantry-tree:
-      size: 992
-      sha256: 55747f9b56063ea1be73a962e1ce44528b9856e119e2d9f1238397b3112b6e70
+      size: 671
+      sha256: cf7712453587e8ea69b96f33e2e8015c22d3b448259d4cace663cc15657309d7
   original:
-    hackage: amazonka-1.6.1@sha256:d863557379350ed6bbb91187abeb8c349a654f60b140d138710486f58ae7c476,3536
+    hackage: strip-ansi-escape-0.1.0.0@sha256:08f2ed93b16086a837ec46eab7ce8d27cf39d47783caaeb818878ea33c2ff75f,1628
 - completed:
-    hackage: amazonka-core-1.6.1@sha256:9bc59ce403c6eeba3b3eaf3f10e5f0b6a33b6edbbf8f6de0dd6f4c67b86fa698,5135
+    hackage: text-zipper-0.11@sha256:8b198643c638d8c29a9b34d0b350387da7b6ef89c6e578aaaabe4170eb426310,1469
     pantry-tree:
-      size: 3438
-      sha256: c13e643176308771491ec0e06390e269047bb1b28be4535992842f7426a95eb4
+      size: 600
+      sha256: 56dd37ebfd21227c4fc77d1b60708b14522fb43d20280c7d04f4418a9b1fface
   original:
-    hackage: amazonka-core-1.6.1@sha256:9bc59ce403c6eeba3b3eaf3f10e5f0b6a33b6edbbf8f6de0dd6f4c67b86fa698,5135
+    hackage: text-zipper-0.11@sha256:8b198643c638d8c29a9b34d0b350387da7b6ef89c6e578aaaabe4170eb426310,1469
 - completed:
-    subdir: amazonka-ec2
-    name: amazonka-ec2
-    version: 1.6.1
-    git: https://github.com/hyraxbio/amazonka.git
+    name: brickBedrock
+    version: 0.1.6.1
+    git: https://github.com/hyraxbio/brickBedrock.git
     pantry-tree:
-      size: 67103
-      sha256: 4cd2bf0fd01e8503ee36b484f045be83d98ac9c0abfa7c163a3749d698f81cd0
-    commit: aebaac9ee297821ffc831d411e9f6c10a2604b70
+      size: 1246
+      sha256: 3ab6e138be0e81f5bb69c74134e70c9d3783487bda4a4647e49806310df943c2
+    commit: a9b7c5e4709a6c3ec251b011565daefa00772d89
   original:
-    subdir: amazonka-ec2
-    git: https://github.com/hyraxbio/amazonka.git
-    commit: aebaac9ee297821ffc831d411e9f6c10a2604b70
+    git: https://github.com/hyraxbio/brickBedrock.git
+    commit: a9b7c5e4709a6c3ec251b011565daefa00772d89
 snapshots:
 - completed:
     size: 532414

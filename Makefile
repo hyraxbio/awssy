@@ -19,7 +19,13 @@ check-nightly:
 	$(stack) build --resolver nightly --pedantic --test
 
 build:
-	$(stack) build $(package) --no-run-tests
+	$(stack) build $(package) --no-run-tests --ghc-options "-j6 +RTS -A128m -n2m -qg -RTS"
+
+build-fast:
+	$(stack) build $(package):exe:$(package) --fast --no-run-tests --ghc-options "-j6 +RTS -A128m -n2m -qg -RTS"
+
+build-watch:
+	$(stack) build $(package) --fast --file-watch --no-run-tests --ghc-options "-j6 +RTS -A128m -n2m -qg -RTS"
 
 build-profile:
 	$(stack) --work-dir .stack-work-profiling --profile build
@@ -34,16 +40,15 @@ run:
 	$(stack) build --fast && $(stack) exec -- $(package)
 
 ghci:
-	$(stack) ghci $(package):exe
+	$(stack) ghci $(package):exe:$(package) --ghci-options='-j8 +RTS -A128m -n2m -qg'
+
 
 bench:
 	$(stack) bench $(package)
 
 ghcid:
-	$(stack) exec -- ghcid -c "stack ghci $(package) --ghci-options='-fobject-code -fno-warn-unused-do-bind' --main-is $(package):exe:$(package)"
+	$(stack) exec -- ghcid --lint -c "stack ghci $(package):exe:$(package) --ghci-options='-fobject-code -fno-warn-unused-do-bind -j6 +RTS -A128m -n2m -qg' --main-is $(package):exe:$(package)"
 
-ghcid-run:
-	$(stack) exec -- ghcid -c "stack ghci $(package):exe --ghci-options='-fobject-code -fno-warn-unused-do-bind' --main-is $(package):exe:$(package)" --test=":main debug" -W
 
 dev-deps:
 	stack install ghcid
