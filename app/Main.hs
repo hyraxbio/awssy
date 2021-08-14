@@ -22,11 +22,13 @@ import           Data.Aeson.Lens (key, _Array, _Object, _String, _Number)
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as Txt
+import qualified Data.Text.Encoding as TxtE
 import qualified Data.UUID as UU
 import qualified Data.Vector as Vec
 import qualified Data.Version as Ver
 import qualified Graphics.Vty as V
 import qualified Graphics.Vty.Input.Events as K
+import qualified Network.HTTP.Req as R
 import qualified System.Clipboard as Clp
 import qualified System.Process.Typed as Pt
 
@@ -50,6 +52,7 @@ type PendingAction' = Bb.PendingAction AwState AwPopup AwWindow AwName AwEvent
 data AwState = AwState
   { _usInstances :: !(BL.List Name' Ae.Value)
   , _usFocus :: !(BF.FocusRing Name')
+  , _usIp :: !Text
   }
 
 data AwPopup
@@ -85,6 +88,7 @@ run args = do
   let ust = AwState
        { _usInstances = BL.list (nm NameInstances) Vec.empty 1
        , _usFocus = BF.focusRing [nm NameInstances]
+       , _usIp = ""
        }
 
   Bb.runTui uiinit ust
@@ -237,8 +241,10 @@ loadApp st =
   in
   Bb.PendingAction id name $ do
     is <- awsGetInstances
+    ip <- getIp
     Bb.sendStatusMessage st Bb.StsTrace ("Loaded instances: " <> show (length is)) Nothing
     pure ( \stx -> stx & Bb.uiSt . usInstances .~ BL.list (nm NameInstances) (Vec.fromList is) 1
+                       & Bb.uiSt . usIp .~ ip
          , []
          )
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -310,6 +316,21 @@ gAttrs =
   ]
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+
+
+getIp :: IO Text
+getIp = do
+  ip <- R.runReq R.defaultHttpConfig $ do
+    r <- R.req
+           R.GET
+           (R.http "ipv4bot.whatismyipaddress.com")
+           R.NoReqBody
+           R.lbsResponse
+           mempty
+
+    pure $ R.responseBody r
+
+  pure . TxtE.decodeUtf8 . BSL.toStrict $ ip
 
 nm :: AwName -> Name'
 nm = Bb.NameUser
