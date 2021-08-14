@@ -23,9 +23,11 @@ executable awssy
                      , brickBedrock >= 0.1.6.1 && < 0.2.0.0
                      , protolude
                      , aeson
+                     , aeson-pretty
                      , brick
                      , bytestring
                      , cmdargs
+                     , Clipboard
                      , containers
                      , directory
                      , filepath

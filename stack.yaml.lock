@@ -18,17 +18,6 @@ packages:
       sha256: 56dd37ebfd21227c4fc77d1b60708b14522fb43d20280c7d04f4418a9b1fface
   original:
     hackage: text-zipper-0.11@sha256:8b198643c638d8c29a9b34d0b350387da7b6ef89c6e578aaaabe4170eb426310,1469
-- completed:
-    name: brickBedrock
-    version: 0.1.6.1
-    git: https://github.com/hyraxbio/brickBedrock.git
-    pantry-tree:
-      size: 1246
-      sha256: 3ab6e138be0e81f5bb69c74134e70c9d3783487bda4a4647e49806310df943c2
-    commit: a9b7c5e4709a6c3ec251b011565daefa00772d89
-  original:
-    git: https://github.com/hyraxbio/brickBedrock.git
-    commit: a9b7c5e4709a6c3ec251b011565daefa00772d89
 snapshots:
 - completed:
     size: 532414

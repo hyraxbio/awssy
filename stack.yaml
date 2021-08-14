@@ -44,8 +44,9 @@ extra-deps:
 
   - text-zipper-0.11@sha256:8b198643c638d8c29a9b34d0b350387da7b6ef89c6e578aaaabe4170eb426310,1469
 
-  - git: https://github.com/hyraxbio/brickBedrock.git
-    commit: a9b7c5e4709a6c3ec251b011565daefa00772d89
+  - ../../prog/haskell/_misc/brickBedrock      
+    # - git: https://github.com/hyraxbio/brickBedrock.git
+    #   commit: a9b7c5e4709a6c3ec251b011565daefa00772d89
 
     #
 # Override default flag values for local packages and extra-deps

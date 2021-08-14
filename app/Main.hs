@@ -15,19 +15,19 @@ import qualified Brick.Widgets.Border as BB
 import qualified Brick.Widgets.Border.Style as BBS
 import qualified Brick.Widgets.Edit as BE
 import qualified Brick.Widgets.List as BL
-import           Control.Exception.Safe (throwString)
-import           Control.Lens (makeLenses, traversed, filtered, at, ix, itraversed, non, (^.), (?~), (^?), (^..), (^@..), (%~), (.~))
+import           Control.Lens (makeLenses, traversed, filtered, at, ix, (^.), (?~), (^?), (^..), (%~), (.~))
 import qualified Data.Aeson as Ae
-import qualified Data.Aeson.Types as Ae
+import qualified Data.Aeson.Encode.Pretty as Ae
 import           Data.Aeson.Lens (key, _Array, _Object, _String, _Number)
+import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as Txt
 import qualified Data.UUID as UU
-import qualified Data.UUID.V4 as UU
 import qualified Data.Vector as Vec
 import qualified Data.Version as Ver
 import qualified Graphics.Vty as V
 import qualified Graphics.Vty.Input.Events as K
+import qualified System.Clipboard as Clp
 import qualified System.Process.Typed as Pt
 
 import qualified BrickBedrock.Core as Bb
@@ -68,9 +68,7 @@ makeLenses ''AwState
 
 
 main :: IO ()
-main = do
-  --print $ instances ^.. traversed . key "__InstanceName" . _String
-  Args.runArgs run
+main = Args.runArgs run
 
 
 run :: Args.Args -> IO ()
@@ -81,7 +79,7 @@ run args = do
        , Bb._uioAppVersion = Txt.pack $ Ver.showVersion Paths.version
        , Bb._uioUserAttrs = gAttrs
        , Bb._uioAppInit = loadApp
-       --, Bb._uioHelpPopupReg = popupRegHelp
+       , Bb._uioHelpPopupReg = popupRegHelp
        }
 
   let ust = AwState
@@ -97,7 +95,7 @@ run args = do
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 regWindowInstances :: Window'
 regWindowInstances =
-  Bb.WUser WMain "Main" . Just $
+  Bb.WUser WMain "EC2 Instances" . Just $
     Bb.WindowReg
       { Bb._wrDraw = const drawInstances
       , Bb._wrEventHandler = const keyHandlerInstances
@@ -107,11 +105,33 @@ regWindowInstances =
 keyHandlerInstances :: UIState' -> B.BrickEvent Name' Event' -> B.EventM Name' (B.Next UIState')
 keyHandlerInstances st ev =
   case ev of
-    (B.VtyEvent (V.EvKey k ms)) ->
+    (B.VtyEvent ve@(V.EvKey k ms)) ->
       case (k, ms) of
-        _ -> Bbd.defaultWindowKeyHandler st ev
+        (K.KChar 'c', []) -> do
+          case snd <$> BL.listSelectedElement (st ^. Bb.uiSt . usInstances) of
+            Nothing -> B.continue st
+            Just vs -> do
+              let s = Ae.encodePretty vs
+              liftIO . Clp.setClipboardString . BS8.unpack . BSL.toStrict $ s
+              B.continue st
 
-    _ -> Bbd.defaultWindowKeyHandler st ev
+        (K.KChar 'i', []) -> do
+          case snd <$> BL.listSelectedElement (st ^. Bb.uiSt . usInstances) of
+            Nothing -> B.continue st
+            Just vs -> do
+              let s = Txt.pack . BS8.unpack . BSL.toStrict . Ae.encodePretty $ vs
+              B.continue $ st & Bb.uiPopup ?~ Bb.popTextForText s
+                              & Bb.uiPopText .~ BE.editorText Bb.NamePopTextEdit Nothing s
+
+  --      (K.KEnter, []) -> do
+  --        st2 <- liftIO $ loadWorkers st
+  --        B.continue st2
+
+        _ -> do
+          r <- BL.handleListEventVi BL.handleListEvent ve $ st ^. Bb.uiSt . usInstances
+          B.continue $ st & Bb.uiSt . usInstances .~ r
+
+    _ -> B.continue st
 
 
 drawInstances :: UIState' -> B.Widget Name'
@@ -179,9 +199,9 @@ drawInstances st =
         <=>
         (titleTxt ": " <+> dullTxt (fromMaybe "" (inst ^? key "InstanceId" . _String)))
         <=>
-        (titleTxt ": " <+> dullTxt (maybe "" show (inst ^? key "CpuOptions" . key "CoreCount" . _Number)))
+        (titleTxt ": " <+> dullTxt (maybe "" (show . round) (inst ^? key "CpuOptions" . key "CoreCount" . _Number)))
         <=>
-        (titleTxt ": " <+> dullTxt (maybe "" show (inst ^? key "CpuOptions" . key "ThreadsPerCore" . _Number)))
+        (titleTxt ": " <+> dullTxt (maybe "" (show . round) (inst ^? key "CpuOptions" . key "ThreadsPerCore" . _Number)))
       )
       <+>
       B.fill ' '
@@ -221,6 +241,38 @@ loadApp st =
     pure ( \stx -> stx & Bb.uiSt . usInstances .~ BL.list (nm NameInstances) (Vec.fromList is) 1
          , []
          )
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Help
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+popupRegHelp :: PopupReg'
+popupRegHelp =
+  Bb.PopupReg
+    { Bb._prDraw = drawPopupHelp
+    , Bb._prEventHandler = const Bb.nopKeyHandler
+    }
+
+
+drawPopupHelp :: Popup' -> UIState' -> B.Widget Name'
+drawPopupHelp _pop _st =
+  B.vBox
+    [ B.withAttr "infoTitle" . B.txt $ "- Global -"
+    , B.withAttr "titleText" (B.txt "  <control> q") <+> B.withAttr "" (B.txt " - Quit")
+    , B.withAttr "titleText" (B.txt "  <control> ?") <+> B.withAttr "" (B.txt " - Help")
+    , B.withAttr "titleText" (B.txt "  F1") <+> B.withAttr "" (B.txt " - Help")
+    -- , B.withAttr "titleText" (B.txt "  <control> r") <+> B.withAttr "" (B.txt " - Refresh data")
+    -- , B.withAttr "titleText" (B.txt "  F5") <+> B.withAttr "" (B.txt " - Refresh data")
+    , B.withAttr "titleText" (B.txt "  F12") <+> B.withAttr "" (B.txt " - Error log")
+    , B.withAttr "titleText" (B.txt "  ESC") <+> B.withAttr "" (B.txt " - Back")
+    , B.vLimit 2 . B.hLimit 1 $ B.fill ' '
+    , B.withAttr "infoTitle" . B.txt $ "- Instances -"
+    , B.withAttr "titleText" (B.txt "  i") <+> B.withAttr "" (B.txt " - View instance JSON")
+    , B.withAttr "titleText" (B.txt "  c") <+> B.withAttr "" (B.txt " - Copy instance JSON to clipboard")
+    -- , B.withAttr "titleText" (B.txt "  Enter") <+> B.withAttr "" (B.txt " - View job's workers")
+    , B.vLimit 40 . B.hLimit 120 $ B.fill ' '
+    ]
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
