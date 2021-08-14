@@ -36,6 +36,7 @@ executable awssy
                      , safe-exceptions
                      , temporary
                      , text
+                     , typed-process
                      , uuid
                      , vector
                      , vty

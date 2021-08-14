@@ -12,7 +12,6 @@ module Args
   , aKeyFile
   , aUser
   , aRegion
-  , aUseEt
   ) where
 
 import           Protolude
@@ -26,13 +25,11 @@ import qualified System.Directory as Dir
 import qualified Paths_awssy as Paths
 
 data Opts = Opts { key :: !Text
-                 , et :: !Bool
                  , user :: !Text
                  , region :: !Text
                  } deriving (A.Data, Typeable)
 
 data Args = Args { _aKeyFile :: !FilePath
-                 , _aUseEt :: !Bool
                  , _aUser :: !Text
                  , _aRegion :: !Text
                  } deriving (Show)
@@ -72,14 +69,12 @@ parseOpts opts = do
   pure Args { _aKeyFile = Txt.unpack keyFile
             , _aUser = userName
             , _aRegion = awsRegion
-            , _aUseEt = et opts
             }
 
 mkArgs :: Opts
 mkArgs =
   let
     opts = Opts { key    = ""         &= A.name "k" &= A.help "ssh pem file"
-                , et     = False      &= A.name "m" &= A.help "use eternalterminal rather than ssh"
                 , user   = "ec2-user" &= A.name "u" &= A.help "AWS user"
                 , region = ""         &= A.name "r" &= A.help "AWS region"
                 }
