@@ -6,7 +6,7 @@
 
 module Main where
 
-import           Protolude
+import           Protolude hiding (bracket_, finally)
 import           Brick ((<+>), (<=>))
 import qualified Brick as B
 import qualified Brick.AttrMap as BA
@@ -15,12 +15,14 @@ import qualified Brick.Widgets.Border as BB
 import qualified Brick.Widgets.Border.Style as BBS
 import qualified Brick.Widgets.Edit as BE
 import qualified Brick.Widgets.List as BL
+import           Control.Exception.Safe (bracket_, finally)
 import           Control.Lens (makeLenses, traversed, filtered, at, ix, (^.), (?~), (^?), (^..), (%~), (.~))
 import qualified Data.Aeson as Ae
 import qualified Data.Aeson.Encode.Pretty as Ae
 import           Data.Aeson.Lens (key, _Array, _Object, _String, _Number)
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.Map.Strict as Map
 import qualified Data.Text as Txt
 import qualified Data.Text.Encoding as TxtE
 import qualified Data.UUID as UU
@@ -31,6 +33,7 @@ import qualified Graphics.Vty as V
 import qualified Graphics.Vty.Input.Events as K
 import qualified Network.HTTP.Req as R
 import qualified System.Clipboard as Clp
+import qualified System.Environment as Env
 import qualified System.Exit as Ex
 import qualified System.Process.Typed as Pt
 
@@ -130,6 +133,10 @@ keyHandlerInstances st ev =
               let s = Txt.pack . BS8.unpack . BSL.toStrict . Ae.encodePretty $ vs
               B.continue $ st & Bb.uiPopup ?~ Bb.popTextForText s
                               & Bb.uiPopText .~ BE.editorText Bb.NamePopTextEdit Nothing s
+
+        (K.KChar 's', []) -> do
+          st2 <- liftIO $ startShell st
+          B.continue st2
 
         (K.KEnter, []) -> do
           st2 <- liftIO $ startSsh st
@@ -246,7 +253,7 @@ loadApp st =
   Bb.PendingAction id name $ do
     is <- awsGetInstances
     ip <- getIp
-    Bb.sendStatusMessage st Bb.StsTrace ("Loaded instances: " <> show (length is)) Nothing
+    Bb.sendStatusMessage st Bb.StsInfo ("Loaded instances: " <> show (length is)) Nothing
     pure (\stx -> B.continue $ stx & Bb.uiSt . usInstances .~ BL.list (nm NameInstances) (Vec.fromList is) 1
                                    & Bb.uiSt . usIp .~ ip
          )
@@ -322,7 +329,7 @@ gAttrs =
 
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
--- Custom attributes
+-- Shell
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 startSsh :: UIState' -> IO UIState'
 startSsh st =
@@ -330,12 +337,122 @@ startSsh st =
     Nothing -> pure st
     Just vs -> do
       let name = vs ^. key "__InstanceName" . _String
+      aid <- UU.nextRandom
+      Bb.addBlockingAction st . Bb.PendingAction aid "ssh" $ do
+        allowSshIngress st
+        let echos =
+             [ "clear"
+             , "echo -e \"\\e]0;AWSSY: " <> name <> "\\007\""
+             , "echo ''"
+             ]
+
+        let ssh =
+             Pt.proc
+               "ssh"
+               [ "-i", st ^. Bb.uiSt . usArgs . Args.aKeyFile
+               , Txt.unpack $ st ^. Bb.uiSt . usArgs . Args.aUser <> "@" <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String)
+               ]
+
+        pure (\stx -> B.suspendAndResume $ do
+                finally
+                  (do
+                    void $ Pt.runProcess . Pt.shell . Txt.unpack $ Txt.intercalate ";" echos
+                    _ <- Pt.runProcess ssh
+                    void $ Pt.runProcess. Pt.shell $ "echo -e \"\\e]0;AWSSY\\007\""
+                    pure stx
+                  )
+                  (rejectSshIngress stx)
+             )
+
+
+startShell :: UIState' -> IO UIState'
+startShell st =
+  case snd <$> BL.listSelectedElement (st ^. Bb.uiSt . usInstances) of
+    Nothing -> pure st
+    Just vs -> do
+      let name = vs ^. key "__InstanceName" . _String
+
+      aid <- UU.nextRandom
+      Bb.addBlockingAction st . Bb.PendingAction aid "ssh" $ do
+        allowSshIngress st
+        let echos =
+             [ "clear"
+             , "echo -e \"\\e]0;AWSSY - shell: " <> name <> "\\007\""
+             , "echo ''"
+             , "echo 'Shell for: ### " <> st ^. Bb.uiSt . usArgs . Args.aUser <> " ###'"
+             , "echo '  AWS_H: " <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String) <> "'"
+             , "echo '  AWS_U: " <> st ^. Bb.uiSt . usArgs . Args.aUser <> "'"
+             , "echo '  AWS_K: " <> Txt.pack (st ^. Bb.uiSt . usArgs . Args.aKeyFile) <> "'"
+             , "echo '  AWS_UH: " <> st ^. Bb.uiSt . usArgs . Args.aUser <> "@" <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String) <> "'"
+             , "echo '  e.g. scp -i $AWS_K ./README.md $AWS_UH:/home/$AWS_U/README.md'"
+             , "echo ''"
+             ]
+
+        let env' = Map.fromList
+             [ ("AWS_H", Txt.unpack $ fromMaybe "" (vs ^? key "PublicIpAddress" . _String))
+             , ("AWS_U", Txt.unpack $ st ^. Bb.uiSt . usArgs . Args.aUser)
+             , ("AWS_K", st ^. Bb.uiSt . usArgs . Args.aKeyFile)
+             , ("AWS_UH", Txt.unpack $ st ^. Bb.uiSt . usArgs . Args.aUser <> "@" <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String))
+             ]
+
+        currentEnv <- Map.fromList <$> Env.getEnvironment
+        let env = Map.toList $ Map.union env' currentEnv
+        let sh = Map.findWithDefault "sh" "SHELL" currentEnv
+
+        let shell = Pt.setEnv env $ Pt.proc sh []
+
+        pure (\stx -> B.suspendAndResume $ do
+                finally
+                  (do
+                     void $ Pt.runProcess . Pt.shell . Txt.unpack $ Txt.intercalate ";" echos
+                     _ <- Pt.runProcess shell
+                     void $ Pt.runProcess. Pt.shell $ "echo -e \"\\e]0;AWSSY\\007\""
+                     pure stx
+                 )
+                 (rejectSshIngress stx)
+             )
+
+
+rejectSshIngress :: UIState' -> IO ()
+rejectSshIngress st = do
+  let ip = st ^. Bb.uiSt . usIp
+  case snd <$> BL.listSelectedElement (st ^. Bb.uiSt . usInstances) of
+    Nothing -> pass
+    Just vs -> do
+      let name = vs ^. key "__InstanceName" . _String
       case lastMay $ vs ^.. key "SecurityGroups" . _Array . traversed . key "GroupId" . _String of
-        Nothing -> pure st
+        Nothing -> pass
         Just sg -> do
-          aid <- UU.nextRandom
-          let ip = st ^. Bb.uiSt . usIp
-          Bb.addBlockingAction st . Bb.PendingAction aid "ssh" $ do
+            let args = Txt.unpack <$>
+                  [ "ec2"
+                  , "revoke-security-group-ingress"
+                  , "--group-id"
+                  , sg
+                  , "--protocol"
+                  , "tcp"
+                  , "--port"
+                  , "22"
+                  , "--cidr"
+                  , ip <> "/32"
+                  ]
+            (ex, sout, serr) <- Pt.readProcess . Pt.proc "aws" $ args
+
+            if ex /= Ex.ExitSuccess
+              then Bb.sendStatusMessage st Bb.StsError ("Reject ingress rule failed for " <> name <> ", group=" <> sg) (Just $ (show args <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ sout)) <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ serr))
+              else Bb.sendStatusMessage st Bb.StsTrace ("Reject ingress rule succeeded for " <> name <> ", group=" <> sg) (Just $ (Txt.pack . BS8.unpack . BSL.toStrict $ sout) <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ serr))
+
+
+
+allowSshIngress :: UIState' -> IO ()
+allowSshIngress st = do
+  let ip = st ^. Bb.uiSt . usIp
+  case snd <$> BL.listSelectedElement (st ^. Bb.uiSt . usInstances) of
+    Nothing -> pass
+    Just vs -> do
+      let name = vs ^. key "__InstanceName" . _String
+      case lastMay $ vs ^.. key "SecurityGroups" . _Array . traversed . key "GroupId" . _String of
+        Nothing -> pass
+        Just sg -> do
             let args = Txt.unpack <$>
                   [ "ec2"
                   , "authorize-security-group-ingress"
@@ -352,43 +469,8 @@ startSsh st =
 
             if ex /= Ex.ExitSuccess
               then Bb.sendStatusMessage st Bb.StsError ("Ingress rule failed for " <> name <> ", group=" <> sg) (Just $ (show args <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ sout)) <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ serr))
-              else Bb.sendStatusMessage st Bb.StsInfo ("Ingress rule succeeded for " <> name <> ", group=" <> sg) (Just $ (Txt.pack . BS8.unpack . BSL.toStrict $ sout) <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ serr))
+              else Bb.sendStatusMessage st Bb.StsTrace ("Ingress rule succeeded for " <> name <> ", group=" <> sg) (Just $ (Txt.pack . BS8.unpack . BSL.toStrict $ sout) <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ serr))
 
-            let echos =
-                 [ "clear"
-                 , "echo -e \"\\e]0;AWSSY: " <> name <> "\\007\""
-                 , "echo ''"
-                 , "echo 'Shell for: ### " <> st ^. Bb.uiSt . usArgs . Args.aUser <> " ###'"
-                 , "echo '  AWS_H: " <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String) <> "'"
-                 , "echo '  AWS_U: " <> st ^. Bb.uiSt . usArgs . Args.aUser <> "'"
-                 , "echo '  AWS_K: " <> Txt.pack (st ^. Bb.uiSt . usArgs . Args.aKeyFile) <> "'"
-                 , "echo '  AWS_UH: " <> st ^. Bb.uiSt . usArgs . Args.aUser <> "@" <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String) <> "'"
-                 , "echo '  e.g. scp -i $AWS_K ./README.md $AWS_UH:/home/$AWS_U/README.md'"
-                 , "echo ''"
-                 ]
-
-            let env =
-                 [ ("AWS_H", Txt.unpack $ fromMaybe "" (vs ^? key "PublicIpAddress" . _String))
-                 , ("AWS_U", Txt.unpack $ st ^. Bb.uiSt . usArgs . Args.aUser)
-                 , ("AWS_K", st ^. Bb.uiSt . usArgs . Args.aKeyFile)
-                 , ("AWS_UH", Txt.unpack $ st ^. Bb.uiSt . usArgs . Args.aUser <> "@" <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String))
-                 ]
-
-            let ssh =
-                 Pt.setEnv env $
-                 Pt.proc
-                   "ssh"
-                   [ "-i", st ^. Bb.uiSt . usArgs . Args.aKeyFile
-                   , Txt.unpack $ st ^. Bb.uiSt . usArgs . Args.aUser <> "@" <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String)
-                   ]
-
-            pure (\stx -> B.suspendAndResume $ do
-                    void $ Pt.runProcess . Pt.shell . Txt.unpack $ Txt.intercalate ";" echos
-                    x <- Pt.runProcess ssh
-                    void $ Pt.runProcess. Pt.shell $ "echo -e \"\\e]0;AWSSY\\007\""
-                    pure stx
-
-                 )
 
 getIp :: IO Text
 getIp = do
