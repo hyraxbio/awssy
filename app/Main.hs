@@ -55,6 +55,7 @@ data AwState = AwState
   { _usInstances :: !(BL.List Name' Ae.Value)
   , _usFocus :: !(BF.FocusRing Name')
   , _usIp :: !Text
+  , _usArgs :: !Args.Args
   }
 
 data AwPopup
@@ -91,6 +92,7 @@ run args = do
        { _usInstances = BL.list (nm NameInstances) Vec.empty 1
        , _usFocus = BF.focusRing [nm NameInstances]
        , _usIp = ""
+       , _usArgs = args
        }
 
   Bb.runTui uiinit ust
@@ -245,9 +247,8 @@ loadApp st =
     is <- awsGetInstances
     ip <- getIp
     Bb.sendStatusMessage st Bb.StsTrace ("Loaded instances: " <> show (length is)) Nothing
-    pure ( \stx -> stx & Bb.uiSt . usInstances .~ BL.list (nm NameInstances) (Vec.fromList is) 1
-                       & Bb.uiSt . usIp .~ ip
-         , []
+    pure (\stx -> B.continue $ stx & Bb.uiSt . usInstances .~ BL.list (nm NameInstances) (Vec.fromList is) 1
+                                   & Bb.uiSt . usIp .~ ip
          )
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -353,8 +354,41 @@ startSsh st =
               then Bb.sendStatusMessage st Bb.StsError ("Ingress rule failed for " <> name <> ", group=" <> sg) (Just $ (show args <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ sout)) <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ serr))
               else Bb.sendStatusMessage st Bb.StsInfo ("Ingress rule succeeded for " <> name <> ", group=" <> sg) (Just $ (Txt.pack . BS8.unpack . BSL.toStrict $ sout) <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ serr))
 
-            pure (identity, [])
+            let echos =
+                 [ "clear"
+                 , "echo -e \"\\e]0;AWSSY: " <> name <> "\\007\""
+                 , "echo ''"
+                 , "echo 'Shell for: ### " <> st ^. Bb.uiSt . usArgs . Args.aUser <> " ###'"
+                 , "echo '  AWS_H: " <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String) <> "'"
+                 , "echo '  AWS_U: " <> st ^. Bb.uiSt . usArgs . Args.aUser <> "'"
+                 , "echo '  AWS_K: " <> Txt.pack (st ^. Bb.uiSt . usArgs . Args.aKeyFile) <> "'"
+                 , "echo '  AWS_UH: " <> st ^. Bb.uiSt . usArgs . Args.aUser <> "@" <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String) <> "'"
+                 , "echo '  e.g. scp -i $AWS_K ./README.md $AWS_UH:/home/$AWS_U/README.md'"
+                 , "echo ''"
+                 ]
 
+            let env =
+                 [ ("AWS_H", Txt.unpack $ fromMaybe "" (vs ^? key "PublicIpAddress" . _String))
+                 , ("AWS_U", Txt.unpack $ st ^. Bb.uiSt . usArgs . Args.aUser)
+                 , ("AWS_K", st ^. Bb.uiSt . usArgs . Args.aKeyFile)
+                 , ("AWS_UH", Txt.unpack $ st ^. Bb.uiSt . usArgs . Args.aUser <> "@" <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String))
+                 ]
+
+            let ssh =
+                 Pt.setEnv env $
+                 Pt.proc
+                   "ssh"
+                   [ "-i", st ^. Bb.uiSt . usArgs . Args.aKeyFile
+                   , Txt.unpack $ st ^. Bb.uiSt . usArgs . Args.aUser <> "@" <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String)
+                   ]
+
+            pure (\stx -> B.suspendAndResume $ do
+                    void $ Pt.runProcess . Pt.shell . Txt.unpack $ Txt.intercalate ";" echos
+                    x <- Pt.runProcess ssh
+                    void $ Pt.runProcess. Pt.shell $ "echo -e \"\\e]0;AWSSY\\007\""
+                    pure stx
+
+                 )
 
 getIp :: IO Text
 getIp = do
