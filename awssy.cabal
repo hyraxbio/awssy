@@ -1,6 +1,6 @@
 cabal-version:       2.2
 name:                awssy
-version:             0.3.0.1
+version:             0.3.0.2
 -- synopsis
 -- description:
 homepage:            https://github.com/hyraxbio/awssy#readme
@@ -20,7 +20,7 @@ executable awssy
   other-modules:       Args
                      , Paths_awssy
   build-depends:       base
-                     , brickBedrock >= 0.1.6.1 && < 0.2.0.0
+                     , brickBedrock >= 0.1.7.3 && < 0.2.0.0
                      , protolude
                      , aeson
                      , aeson-pretty

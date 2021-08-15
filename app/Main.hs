@@ -4,18 +4,19 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Main where
+module Main (main) where
 
 import           Protolude hiding (bracket_, finally)
 import           Brick ((<+>), (<=>))
 import qualified Brick as B
 import qualified Brick.AttrMap as BA
+import qualified Brick.BChan as BCh
 import qualified Brick.Focus as BF
 import qualified Brick.Widgets.Border as BB
 import qualified Brick.Widgets.Border.Style as BBS
 import qualified Brick.Widgets.Edit as BE
 import qualified Brick.Widgets.List as BL
-import           Control.Exception.Safe (bracket_, finally)
+import           Control.Exception.Safe (finally)
 import           Control.Lens (makeLenses, traversed, filtered, at, ix, (^.), (?~), (^?), (^..), (%~), (.~))
 import qualified Data.Aeson as Ae
 import qualified Data.Aeson.Encode.Pretty as Ae
@@ -50,7 +51,7 @@ type UIState' = Bb.UIState AwState AwPopup AwWindow AwName AwEvent
 type Window' = Bb.Window AwState AwPopup AwWindow AwName AwEvent
 type Popup' = Bb.Popup AwState AwPopup AwWindow AwName AwEvent
 type Name' = Bb.Name AwName
-type WindowReg' = Bb.WindowReg AwState AwPopup AwWindow AwName AwEvent
+--type WindowReg' = Bb.WindowReg AwState AwPopup AwWindow AwName AwEvent
 type PopupReg' = Bb.PopupReg AwState AwPopup AwWindow AwName AwEvent
 type PendingAction' = Bb.PendingAction AwState AwPopup AwWindow AwName AwEvent
 
@@ -62,7 +63,6 @@ data AwState = AwState
   }
 
 data AwPopup
-  = PopDemo
 
 data AwWindow
   = WMain
@@ -72,6 +72,7 @@ data AwName
   deriving (Show, Eq, Ord)
 
 data AwEvent
+  = EvtRefresh
 
 makeLenses ''AwState
 
@@ -88,7 +89,9 @@ run args = do
        , Bb._uioAppVersion = Txt.pack $ Ver.showVersion Paths.version
        , Bb._uioUserAttrs = gAttrs
        , Bb._uioAppInit = loadApp
+       , Bb._uioAppPreInit = startUpdateTimer
        , Bb._uioHelpPopupReg = popupRegHelp
+       , Bb._uioHandleUserEvents = handleEvents
        }
 
   let ust = AwState
@@ -100,6 +103,14 @@ run args = do
 
   Bb.runTui uiinit ust
 
+  where
+    startUpdateTimer st = do
+      void . liftIO . forkIO $
+        forever $ do
+          threadDelay (5 * 60 * 1000000)  -- 5 min
+          BCh.writeBChan (st ^. Bb.uiChan) $ evt EvtRefresh
+
+      pure st
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Instances
@@ -133,6 +144,9 @@ keyHandlerInstances st ev =
               let s = Txt.pack . BS8.unpack . BSL.toStrict . Ae.encodePretty $ vs
               B.continue $ st & Bb.uiPopup ?~ Bb.popTextForText s
                               & Bb.uiPopText .~ BE.editorText Bb.NamePopTextEdit Nothing s
+
+        (K.KChar 'r', [V.MCtrl]) -> syncRefreshInstances st
+        (K.KFun 5, []) -> syncRefreshInstances st
 
         (K.KChar 's', []) -> do
           st2 <- liftIO $ startShell st
@@ -242,6 +256,24 @@ drawInstances st =
 
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Events
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+handleEvents :: AwEvent -> UIState' -> B.EventM Name' (B.Next UIState')
+handleEvents v st =
+  case v of
+    EvtRefresh -> do
+      liftIO $ do
+        id <- UU.nextRandom
+        Bb.addAsyncAction st . Bb.PendingAction id "instance.refresh.async" $ do
+          is <- awsGetInstances
+          liftIO $ Bb.sendStatusMessage st Bb.StsTrace "Instances refreshed (async)" Nothing
+          pure (\stx -> B.continue $ updateInstances stx is)
+
+      B.continue st
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Load and update
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 loadApp :: UIState' -> PendingAction'
@@ -257,6 +289,32 @@ loadApp st =
     pure (\stx -> B.continue $ stx & Bb.uiSt . usInstances .~ BL.list (nm NameInstances) (Vec.fromList is) 1
                                    & Bb.uiSt . usIp .~ ip
          )
+
+
+updateInstances :: UIState' -> [Ae.Value] -> UIState'
+updateInstances st1 is = do
+  let
+    oldInstId =
+      case snd <$> BL.listSelectedElement (st1 ^. Bb.uiSt . usInstances) of
+        Nothing -> Nothing
+        Just vs -> vs ^? key "InstanceId" . _String
+
+    lst1 = BL.list (nm NameInstances) (Vec.fromList is) 1
+    lst2 = BL.listFindBy (\v -> v ^? key "InstanceId" . _String == oldInstId) lst1
+    st2 = st1 & Bb.uiSt . usInstances .~ lst2
+
+  st2
+
+
+syncRefreshInstances :: UIState' -> B.EventM Name' (B.Next UIState')
+syncRefreshInstances st = do
+  id <- liftIO UU.nextRandom
+  liftIO . Bb.addBlockingAction st . Bb.PendingAction id "instance.refresh.async" $ do
+    is <- awsGetInstances
+    liftIO $ Bb.sendStatusMessage st Bb.StsTrace "Instances refreshed (sync)" Nothing
+    pure (\stx -> B.continue $ updateInstances stx is)
+
+  B.continue st
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -278,15 +336,14 @@ drawPopupHelp _pop _st =
     , B.withAttr "titleText" (B.txt "  <control> q") <+> B.withAttr "" (B.txt " - Quit")
     , B.withAttr "titleText" (B.txt "  <control> ?") <+> B.withAttr "" (B.txt " - Help")
     , B.withAttr "titleText" (B.txt "  F1") <+> B.withAttr "" (B.txt " - Help")
-    -- , B.withAttr "titleText" (B.txt "  <control> r") <+> B.withAttr "" (B.txt " - Refresh data")
-    -- , B.withAttr "titleText" (B.txt "  F5") <+> B.withAttr "" (B.txt " - Refresh data")
+    , B.withAttr "titleText" (B.txt "  <control> r") <+> B.withAttr "" (B.txt " - Refresh data")
+    , B.withAttr "titleText" (B.txt "  F5") <+> B.withAttr "" (B.txt " - Refresh data")
     , B.withAttr "titleText" (B.txt "  F12") <+> B.withAttr "" (B.txt " - Error log")
     , B.withAttr "titleText" (B.txt "  ESC") <+> B.withAttr "" (B.txt " - Back")
     , B.vLimit 2 . B.hLimit 1 $ B.fill ' '
     , B.withAttr "infoTitle" . B.txt $ "- Instances -"
     , B.withAttr "titleText" (B.txt "  i") <+> B.withAttr "" (B.txt " - View instance JSON")
     , B.withAttr "titleText" (B.txt "  c") <+> B.withAttr "" (B.txt " - Copy instance JSON to clipboard")
-    -- , B.withAttr "titleText" (B.txt "  Enter") <+> B.withAttr "" (B.txt " - View job's workers")
     , B.vLimit 40 . B.hLimit 120 $ B.fill ' '
     ]
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -363,6 +420,7 @@ startSsh st =
                   )
                   (rejectSshIngress stx)
              )
+      pure st
 
 
 startShell :: UIState' -> IO UIState'
@@ -411,6 +469,7 @@ startShell st =
                  )
                  (rejectSshIngress stx)
              )
+      pure st
 
 
 rejectSshIngress :: UIState' -> IO ()
@@ -487,6 +546,9 @@ getIp = do
   pure . TxtE.decodeUtf8 . BSL.toStrict $ ip
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+
+evt :: AwEvent -> Event'
+evt = Bb.EvtUser
 
 nm :: AwName -> Name'
 nm = Bb.NameUser
