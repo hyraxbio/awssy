@@ -24,12 +24,14 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as Txt
 import qualified Data.Text.Encoding as TxtE
 import qualified Data.UUID as UU
+import qualified Data.UUID.V4 as UU
 import qualified Data.Vector as Vec
 import qualified Data.Version as Ver
 import qualified Graphics.Vty as V
 import qualified Graphics.Vty.Input.Events as K
 import qualified Network.HTTP.Req as R
 import qualified System.Clipboard as Clp
+import qualified System.Exit as Ex
 import qualified System.Process.Typed as Pt
 
 import qualified BrickBedrock.Core as Bb
@@ -127,9 +129,9 @@ keyHandlerInstances st ev =
               B.continue $ st & Bb.uiPopup ?~ Bb.popTextForText s
                               & Bb.uiPopText .~ BE.editorText Bb.NamePopTextEdit Nothing s
 
-  --      (K.KEnter, []) -> do
-  --        st2 <- liftIO $ loadWorkers st
-  --        B.continue st2
+        (K.KEnter, []) -> do
+          st2 <- liftIO $ startSsh st
+          B.continue st2
 
         _ -> do
           r <- BL.handleListEventVi BL.handleListEvent ve $ st ^. Bb.uiSt . usInstances
@@ -318,6 +320,42 @@ gAttrs =
 
 
 
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Custom attributes
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+startSsh :: UIState' -> IO UIState'
+startSsh st =
+  case snd <$> BL.listSelectedElement (st ^. Bb.uiSt . usInstances) of
+    Nothing -> pure st
+    Just vs -> do
+      let name = vs ^. key "__InstanceName" . _String
+      case lastMay $ vs ^.. key "SecurityGroups" . _Array . traversed . key "GroupId" . _String of
+        Nothing -> pure st
+        Just sg -> do
+          aid <- UU.nextRandom
+          let ip = st ^. Bb.uiSt . usIp
+          Bb.addBlockingAction st . Bb.PendingAction aid "ssh" $ do
+            let args = Txt.unpack <$>
+                  [ "ec2"
+                  , "authorize-security-group-ingress"
+                  , "--group-id"
+                  , sg
+                  , "--protocol"
+                  , "tcp"
+                  , "--port"
+                  , "22"
+                  , "--cidr"
+                  , ip <> "/32"
+                  ]
+            (ex, sout, serr) <- Pt.readProcess . Pt.proc "aws" $ args
+
+            if ex /= Ex.ExitSuccess
+              then Bb.sendStatusMessage st Bb.StsError ("Ingress rule failed for " <> name <> ", group=" <> sg) (Just $ (show args <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ sout)) <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ serr))
+              else Bb.sendStatusMessage st Bb.StsInfo ("Ingress rule succeeded for " <> name <> ", group=" <> sg) (Just $ (Txt.pack . BS8.unpack . BSL.toStrict $ sout) <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ serr))
+
+            pure (identity, [])
+
+
 getIp :: IO Text
 getIp = do
   ip <- R.runReq R.defaultHttpConfig $ do
@@ -331,6 +369,8 @@ getIp = do
     pure $ R.responseBody r
 
   pure . TxtE.decodeUtf8 . BSL.toStrict $ ip
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 nm :: AwName -> Name'
 nm = Bb.NameUser
