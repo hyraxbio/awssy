@@ -4,6 +4,8 @@
 FROM 085736401259.dkr.ecr.eu-west-1.amazonaws.com/hyraxbio/hyrax-haskell as builder
 
 
+RUN apt-get update && apt-get install -y libxss-dev
+
 #------------
 # cache some haskell dependencies
 #------------
@@ -32,17 +34,21 @@ RUN stack build && stack install
 
 
 #########################################################################
-# Copy strix
+# Copy awssy & setup run container
 #########################################################################
 FROM 085736401259.dkr.ecr.eu-west-1.amazonaws.com/hyraxbio/hyrax-base
 
-RUN apt-get update && apt-get install -y netbase ca-certificates openssh-client locales locales-all software-properties-common && \
-    add-apt-repository ppa:jgmath2000/et && \
-    apt-get update && \
-    apt-get install -y et && \
+RUN apt-get update && apt-get install -y netbase ca-certificates openssh-client locales locales-all software-properties-common curl python3.8 python3.8-venv libx11-dev  libxrandr-dev libxinerama-dev libxss-dev && \
     apt-get autoremove --purge && \
     apt-get -y clean && \
     rm -rf /var/lib/apt/lists/*
+
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+
+
+RUN curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "awscli-bundle.zip"
+RUN unzip awscli-bundle.zip 
+RUN ./awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws
 
 #Set the locale
 ENV LC_ALL en_US.UTF-8
