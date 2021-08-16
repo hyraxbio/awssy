@@ -399,7 +399,7 @@ startSsh st =
         allowSshIngress st
         let echos =
              [ "clear"
-             , "echo -e \"\\e]0;AWSSY: " <> name <> "\\007\""
+             , "echo -e \"\\e]0;AWSSY: ssh" <> name <> "\\007\""
              , "echo ''"
              ]
 
@@ -455,8 +455,8 @@ startShell st =
 
         currentEnv <- Map.fromList <$> Env.getEnvironment
         let env = Map.toList $ Map.union env' currentEnv
-        let sh = Map.findWithDefault "sh" "SHELL" currentEnv
 
+        let sh = Map.findWithDefault "sh" "SHELL" currentEnv
         let shell = Pt.setEnv env $ Pt.proc sh []
 
         pure (\stx -> B.suspendAndResume $ do
@@ -482,7 +482,7 @@ rejectSshIngress st = do
       case lastMay $ vs ^.. key "SecurityGroups" . _Array . traversed . key "GroupId" . _String of
         Nothing -> pass
         Just sg -> do
-            let args = Txt.unpack <$>
+          let args = Txt.unpack <$>
                   [ "ec2"
                   , "revoke-security-group-ingress"
                   , "--group-id"
@@ -494,11 +494,12 @@ rejectSshIngress st = do
                   , "--cidr"
                   , ip <> "/32"
                   ]
-            (ex, sout, serr) <- Pt.readProcess . Pt.proc "aws" $ args
 
-            if ex /= Ex.ExitSuccess
-              then Bb.sendStatusMessage st Bb.StsError ("Reject ingress rule failed for " <> name <> ", group=" <> sg) (Just $ (show args <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ sout)) <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ serr))
-              else Bb.sendStatusMessage st Bb.StsTrace ("Reject ingress rule succeeded for " <> name <> ", group=" <> sg) (Just $ (Txt.pack . BS8.unpack . BSL.toStrict $ sout) <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ serr))
+          (ex, sout, serr) <- Pt.readProcess . Pt.proc "aws" $ args
+
+          if ex /= Ex.ExitSuccess
+            then Bb.sendStatusMessage st Bb.StsError ("Reject ingress rule failed for " <> name <> ", group=" <> sg) (Just $ (show args <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ sout)) <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ serr))
+            else Bb.sendStatusMessage st Bb.StsTrace ("Reject ingress rule succeeded for " <> name <> ", group=" <> sg) (Just $ (Txt.pack . BS8.unpack . BSL.toStrict $ sout) <> "\n\n" <> (Txt.pack . BS8.unpack . BSL.toStrict $ serr))
 
 
 
