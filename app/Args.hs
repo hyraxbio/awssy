@@ -11,7 +11,6 @@ module Args
   , Args (..)
   , aKeyFile
   , aUser
-  , aRegion
   ) where
 
 import           Protolude
@@ -26,12 +25,10 @@ import qualified Paths_awssy as Paths
 
 data Opts = Opts { key :: !Text
                  , user :: !Text
-                 , region :: !Text
                  } deriving (A.Data, Typeable)
 
 data Args = Args { _aKeyFile :: !FilePath
                  , _aUser :: !Text
-                 , _aRegion :: !Text
                  } deriving (Show)
 
 makeLenses ''Args
@@ -49,8 +46,6 @@ runArgs run = do
 
 parseOpts :: Opts -> ExceptT Text IO Args
 parseOpts opts = do
-  let awsRegion = region opts
-
   keyFile <- do
     let path = if Txt.null (key opts)
                then "~/.ssh/id_rsa"
@@ -68,7 +63,6 @@ parseOpts opts = do
 
   pure Args { _aKeyFile = Txt.unpack keyFile
             , _aUser = userName
-            , _aRegion = awsRegion
             }
 
 mkArgs :: Opts
@@ -76,7 +70,6 @@ mkArgs =
   let
     opts = Opts { key    = ""         &= A.name "k" &= A.help "ssh pem file"
                 , user   = "ec2-user" &= A.name "u" &= A.help "AWS user"
-                , region = ""         &= A.name "r" &= A.help "AWS region"
                 }
 
     _PROGRAM_NAME = "awssy"
