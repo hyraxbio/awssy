@@ -537,7 +537,7 @@ getIp = do
   ip <- R.runReq R.defaultHttpConfig $ do
     r <- R.req
            R.GET
-           (R.http "ipv4bot.whatismyipaddress.com")
+           (R.http "ifconfig.co")
            R.NoReqBody
            R.lbsResponse
            mempty
