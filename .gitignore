@@ -8,4 +8,6 @@ tmp
 temp
 
 buildDeps/depsProj/
+dist-newstyle/
+dist-newstyle_dynamic/
 
