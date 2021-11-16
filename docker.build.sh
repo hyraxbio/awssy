@@ -16,3 +16,4 @@ popd
 
 docker build -t ${DOCKER_REPO_URL}${DOCKER_REPO_NAMESPACE}awssy:$SHA .
 docker tag ${DOCKER_REPO_URL}${DOCKER_REPO_NAMESPACE}awssy:$SHA awssy:latest
+docker tag ${DOCKER_REPO_URL}${DOCKER_REPO_NAMESPACE}awssy:$SHA ${DOCKER_REPO_URL}${DOCKER_REPO_NAMESPACE}awssy:latest
