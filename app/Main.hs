@@ -397,6 +397,7 @@ startSsh st =
       aid <- UU.nextRandom
       Bb.addBlockingAction st . Bb.PendingAction aid "ssh" $ do
         allowSshIngress st
+
         let echos =
              [ "clear"
              , "echo -e \"\\e]0;AWSSY: ssh" <> name <> "\\007\""
@@ -466,8 +467,8 @@ startShell st =
                      _ <- Pt.runProcess shell
                      void $ Pt.runProcess. Pt.shell $ "echo -e \"\\e]0;AWSSY\\007\""
                      pure stx
-                 )
-                 (rejectSshIngress stx)
+                  )
+                  (rejectSshIngress stx)
              )
       pure st
 
@@ -540,11 +541,11 @@ getIp = do
            (R.http "ifconfig.co")
            R.NoReqBody
            R.lbsResponse
-           mempty
+           (R.header "Accept" "text/plain")
 
     pure $ R.responseBody r
 
-  pure . TxtE.decodeUtf8 . BSL.toStrict $ ip
+  pure . Txt.strip . TxtE.decodeUtf8 . BSL.toStrict $ ip
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
