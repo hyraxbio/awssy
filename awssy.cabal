@@ -1,6 +1,6 @@
 cabal-version:       2.2
 name:                awssy
-version:             0.3.0.6
+version:             0.3.0.7
 -- synopsis
 -- description:
 homepage:            https://github.com/hyraxbio/awssy#readme
