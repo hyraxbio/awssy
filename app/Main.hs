@@ -354,7 +354,7 @@ drawPopupHelp _pop _st =
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 awsGetInstances :: IO [Ae.Value]
 awsGetInstances = do
-  (js,_) <- Pt.readProcess_ "aws ec2 describe-instances"
+  (js,_) <- Pt.readProcess_ "aws ec2 describe-instances --output json"
   let
     -- All instances that are not stopped
     instances1 = js ^.. key "Reservations" . _Array . traversed . key "Instances" . _Array . traversed -- . filtered (\i -> i ^? key "State" . key "Name" . _String /= Just "stopped")
