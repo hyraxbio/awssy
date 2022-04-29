@@ -12,26 +12,30 @@ packages:
   original:
     hackage: strip-ansi-escape-0.1.0.0@sha256:08f2ed93b16086a837ec46eab7ce8d27cf39d47783caaeb818878ea33c2ff75f,1628
 - completed:
-    hackage: text-zipper-0.11@sha256:8b198643c638d8c29a9b34d0b350387da7b6ef89c6e578aaaabe4170eb426310,1469
-    pantry-tree:
-      size: 600
-      sha256: 56dd37ebfd21227c4fc77d1b60708b14522fb43d20280c7d04f4418a9b1fface
-  original:
-    hackage: text-zipper-0.11@sha256:8b198643c638d8c29a9b34d0b350387da7b6ef89c6e578aaaabe4170eb426310,1469
-- completed:
     name: brickBedrock
-    version: 0.1.7.5
+    version: 0.1.8.0
     git: https://github.com/hyraxbio/brickBedrock.git
     pantry-tree:
-      size: 1246
-      sha256: cedb7638da35ad665ad53cd76f12b95184c155b3b0f87ce9b10ce79e2733fc8c
-    commit: 820c0110df4703cb88f528c93de527f317499970
+      size: 1211
+      sha256: 6fb6d8d2d9d8cd3807da1b64b677cd5770913516cad0d80eac50e33362cb94e8
+    commit: 2fff7dc90ab50723cba88a2122017a171110032f
   original:
     git: https://github.com/hyraxbio/brickBedrock.git
-    commit: 820c0110df4703cb88f528c93de527f317499970
+    commit: 2fff7dc90ab50723cba88a2122017a171110032f
+- completed:
+    size: 33781
+    url: https://github.com/protolude/protolude/archive/3e249724fd0ead27370c8c297b1ecd38f92cbd5b.tar.gz
+    name: protolude
+    version: 0.3.1
+    sha256: 0642bfda8aaaa84477e030e26770a388e4facbce25f98b8781820c8b82f280e5
+    pantry-tree:
+      size: 3146
+      sha256: 685ed0191298da9540e772ffa746eb078d4f4a77ed8012a9933d3c79644b1054
+  original:
+    url: https://github.com/protolude/protolude/archive/3e249724fd0ead27370c8c297b1ecd38f92cbd5b.tar.gz
 snapshots:
 - completed:
-    size: 586296
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/18.yaml
-    sha256: 63539429076b7ebbab6daa7656cfb079393bf644971156dc349d7c0453694ac2
-  original: lts-18.18
+    size: 619093
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/5.yaml
+    sha256: b936d27d647a31a8834d3efec126e2a07dee9c9bd6dd401d9bdac77e7b278f1e
+  original: lts-19.5

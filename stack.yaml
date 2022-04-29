@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-18.18
+resolver: lts-19.5
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -36,17 +36,18 @@ resolver: lts-18.18
 # non-dependency (i.e. a user package), and its test suites and benchmarks
 # will not be run. This is useful for tweaking upstream packages.
 packages:
-- .
+  - .
+    #
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
-extra-deps: 
+extra-deps:
   - strip-ansi-escape-0.1.0.0@sha256:08f2ed93b16086a837ec46eab7ce8d27cf39d47783caaeb818878ea33c2ff75f,1628
 
-  - text-zipper-0.11@sha256:8b198643c638d8c29a9b34d0b350387da7b6ef89c6e578aaaabe4170eb426310,1469
-
   - git: https://github.com/hyraxbio/brickBedrock.git
-    commit: 820c0110df4703cb88f528c93de527f317499970
+    commit: 2fff7dc90ab50723cba88a2122017a171110032f
 
+  - github: protolude/protolude
+    commit: 3e249724fd0ead27370c8c297b1ecd38f92cbd5b
     #
 # Override default flag values for local packages and extra-deps
 # flags: {}
@@ -74,4 +75,4 @@ extra-deps:
 
 nix:
   enable: false
-  packages: [ zlib ]
+  packages: [zlib]
