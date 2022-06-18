@@ -475,6 +475,11 @@ startShell st =
         let shell = Pt.setEnv env $ Pt.proc sh []
 
         pure (\stx -> B.suspendAndResume $ do
+                -- reject ssh ingress rule after delay to connect. SG rules are stateful so existing connection will continue to work
+                void . forkIO $ do
+                  threadDelay $ 10 * 1_000_000
+                  rejectSshIngress stx
+
                 finally
                   (do
                      void $ Pt.runProcess . Pt.shell . Txt.unpack $ Txt.intercalate ";" echos
