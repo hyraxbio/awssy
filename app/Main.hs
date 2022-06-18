@@ -197,6 +197,7 @@ drawInstances st =
     detailBlock =
       let
         inst = maybe Ae.Null snd (BL.listSelectedElement (st ^. Bb.uiSt . usInstances))
+        name = fromMaybe "" $ inst ^? key "__InstanceName" . _String
       in
       ( titleTxt "Name"
         <=>
@@ -217,9 +218,13 @@ drawInstances st =
         titleTxt "CPU Cores"
         <=>
         titleTxt "Threads per core"
+        <=>
+        titleTxt "awssy login user"
+        <=>
+        titleTxt "awssy key file"
       )
       <+>
-      ( (titleTxt ": " <+> dullTxt (fromMaybe "" (inst ^? key "__InstanceName" . _String)))
+      ( (titleTxt ": " <+> dullTxt name)
         <=>
         (titleTxt ": " <+> dullTxt (fromMaybe "" (inst ^? key "State" . key "Name" . _String)))
         <=>
@@ -238,6 +243,10 @@ drawInstances st =
         (titleTxt ": " <+> dullTxt (maybe "" (show . round @_ @Int) (inst ^? key "CpuOptions" . key "CoreCount" . _Number)))
         <=>
         (titleTxt ": " <+> dullTxt (maybe "" (show . round @_ @Int) (inst ^? key "CpuOptions" . key "ThreadsPerCore" . _Number)))
+        <=>
+        (titleTxt ": " <+> dullTxt (getUser name (st ^. Bb.uiSt)))
+        <=>
+        (titleTxt ": " <+> dullTxt (Txt.pack $ getKeyFile name (st ^. Bb.uiSt)))
       )
       <+>
       B.fill ' '
