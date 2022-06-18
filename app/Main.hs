@@ -3,6 +3,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Main (main) where
 
@@ -17,7 +19,7 @@ import qualified Brick.Widgets.Border.Style as BBS
 import qualified Brick.Widgets.Edit as BE
 import qualified Brick.Widgets.List as BL
 import           Control.Exception.Safe (finally)
-import           Control.Lens (makeLenses, traversed, filtered, at, ix, (^.), (?~), (^?), (^..), (%~), (.~))
+import           Control.Lens (makeLenses, traversed, filtered, _Just, at, ix, (^.), (?~), (^?), (^..), (%~), (.~))
 import qualified Data.Aeson as Ae
 import qualified Data.Aeson.Encode.Pretty as Ae
 import           Data.Aeson.Lens (key, _Array, _Object, _String, _Number)
@@ -43,6 +45,7 @@ import qualified BrickBedrock.Defaults as Bbd
 import qualified BrickBedrock.Model as Bb
 
 import qualified Args
+import qualified Settings as S
 import qualified Paths_awssy as Paths
 
 -- Make the code a bit easier to read, but I don't really like aliases...
@@ -60,6 +63,7 @@ data AwState = AwState
   , _usFocus :: !(BF.FocusRing Name')
   , _usIp :: !Text
   , _usArgs :: !Args.Args
+  , _usSettings :: !(Maybe S.Settings)
   }
 
 data AwPopup
@@ -83,6 +87,8 @@ main = Args.runArgs run
 
 run :: Args.Args -> IO ()
 run args = do
+  settings <- S.readSettings
+
   let uiinit = Bbd.defaultInit
        { Bb._uioStartWindow = regWindowInstances
        , Bb._uioAppName = "Awssy"
@@ -99,6 +105,7 @@ run args = do
        , _usFocus = BF.focusRing [nm NameInstances]
        , _usIp = ""
        , _usArgs = args
+       , _usSettings = settings
        }
 
   Bb.runTui uiinit ust
@@ -107,7 +114,7 @@ run args = do
     startUpdateTimer st = do
       void . liftIO . forkIO $
         forever $ do
-          threadDelay (5 * 60 * 1000000)  -- 5 min
+          threadDelay (5 * 60 * 1_000_000)  -- 5 min
           BCh.writeBChan (st ^. Bb.uiChan) $ evt EvtRefresh
 
       pure st
@@ -228,9 +235,9 @@ drawInstances st =
         <=>
         (titleTxt ": " <+> dullTxt (fromMaybe "" (inst ^? key "InstanceId" . _String)))
         <=>
-        (titleTxt ": " <+> dullTxt (maybe "" (show . round) (inst ^? key "CpuOptions" . key "CoreCount" . _Number)))
+        (titleTxt ": " <+> dullTxt (maybe "" (show . round @_ @Int) (inst ^? key "CpuOptions" . key "CoreCount" . _Number)))
         <=>
-        (titleTxt ": " <+> dullTxt (maybe "" (show . round) (inst ^? key "CpuOptions" . key "ThreadsPerCore" . _Number)))
+        (titleTxt ": " <+> dullTxt (maybe "" (show . round @_ @Int) (inst ^? key "CpuOptions" . key "ThreadsPerCore" . _Number)))
       )
       <+>
       B.fill ' '
@@ -407,11 +414,16 @@ startSsh st =
         let ssh =
              Pt.proc
                "ssh"
-               [ "-i", st ^. Bb.uiSt . usArgs . Args.aKeyFile
-               , Txt.unpack $ st ^. Bb.uiSt . usArgs . Args.aUser <> "@" <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String)
+               [ "-i", getKeyFile name (st ^. Bb.uiSt)
+               , Txt.unpack $ getUser name (st ^. Bb.uiSt) <> "@" <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String)
                ]
 
         pure (\stx -> B.suspendAndResume $ do
+                -- reject ssh ingress rule after delay to connect. SG rules are stateful so existing connection will continue to work
+                void . forkIO $ do
+                  threadDelay $ 10 * 1_000_000
+                  rejectSshIngress stx
+
                 finally
                   (do
                     void $ Pt.runProcess . Pt.shell . Txt.unpack $ Txt.intercalate ";" echos
@@ -434,24 +446,26 @@ startShell st =
       aid <- UU.nextRandom
       Bb.addBlockingAction st . Bb.PendingAction aid "ssh" $ do
         allowSshIngress st
+        let userName = getUser name (st ^. Bb.uiSt)
+        let keyFile = getKeyFile name (st ^. Bb.uiSt)
         let echos =
              [ "clear"
              , "echo -e \"\\e]0;AWSSY - shell: " <> name <> "\\007\""
              , "echo ''"
-             , "echo 'Shell for: ### " <> st ^. Bb.uiSt . usArgs . Args.aUser <> " ###'"
+             , "echo 'Shell for: ### " <> userName <> " ###'"
              , "echo '  AWS_H: " <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String) <> "'"
-             , "echo '  AWS_U: " <> st ^. Bb.uiSt . usArgs . Args.aUser <> "'"
-             , "echo '  AWS_K: " <> Txt.pack (st ^. Bb.uiSt . usArgs . Args.aKeyFile) <> "'"
-             , "echo '  AWS_UH: " <> st ^. Bb.uiSt . usArgs . Args.aUser <> "@" <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String) <> "'"
+             , "echo '  AWS_U: " <> userName <> "'"
+             , "echo '  AWS_K: " <> Txt.pack keyFile <> "'"
+             , "echo '  AWS_UH: " <> userName <> "@" <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String) <> "'"
              , "echo '  e.g. scp -i $AWS_K ./README.md $AWS_UH:/home/$AWS_U/README.md'"
              , "echo ''"
              ]
 
         let env' = Map.fromList
              [ ("AWS_H", Txt.unpack $ fromMaybe "" (vs ^? key "PublicIpAddress" . _String))
-             , ("AWS_U", Txt.unpack $ st ^. Bb.uiSt . usArgs . Args.aUser)
-             , ("AWS_K", st ^. Bb.uiSt . usArgs . Args.aKeyFile)
-             , ("AWS_UH", Txt.unpack $ st ^. Bb.uiSt . usArgs . Args.aUser <> "@" <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String))
+             , ("AWS_U", Txt.unpack userName)
+             , ("AWS_K", keyFile)
+             , ("AWS_UH", Txt.unpack $ userName <> "@" <> fromMaybe "" (vs ^? key "PublicIpAddress" . _String))
              ]
 
         currentEnv <- Map.fromList <$> Env.getEnvironment
@@ -546,6 +560,22 @@ getIp = do
     pure $ R.responseBody r
 
   pure . Txt.strip . TxtE.decodeUtf8 . BSL.toStrict $ ip
+
+
+getUser :: Text -> AwState -> Text
+getUser hostName st =
+  let def = st ^. usArgs . Args.aUser in
+  case st ^? usSettings . _Just . S.sHosts . ix hostName of
+    Just h -> fromMaybe def $ h ^. S.hUser
+    _ ->  def
+
+
+getKeyFile :: Text -> AwState -> FilePath
+getKeyFile hostName st =
+  let def = st ^. usArgs . Args.aKeyFile in
+  case st ^? usSettings . _Just . S.sHosts . ix hostName of
+    Just h -> fromMaybe def $ h ^. S.hkeyFile
+    _ ->  def
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 

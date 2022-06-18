@@ -68,15 +68,15 @@ parseOpts opts = do
 mkArgs :: Opts
 mkArgs =
   let
-    opts = Opts { key    = ""         &= A.name "k" &= A.help "ssh pem file"
-                , user   = "ec2-user" &= A.name "u" &= A.help "AWS user"
+    opts = Opts { key    = ""         &= A.name "k" &= A.help "ssh default pem file"
+                , user   = "ec2-user" &= A.name "u" &= A.help "AWS default user"
                 }
 
     _PROGRAM_NAME = "awssy"
     _PROGRAM_VERSION = Txt.unpack version
     _PROGRAM_INFO = _PROGRAM_NAME <> " version " <> _PROGRAM_VERSION
     _PROGRAM_ABOUT = "awssy: aws terminal GUI"
-    _COPYRIGHT = "(C) 2018-2021 HyraxBio"
+    _COPYRIGHT = "(C) 2018-2022 HyraxBio"
   in
     opts
     &= A.versionArg [A.explicit, A.name "version", A.summary _PROGRAM_INFO]

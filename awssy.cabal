@@ -1,6 +1,6 @@
 cabal-version:       2.2
 name:                awssy
-version:             0.3.0.7
+version:             0.3.1.0
 -- synopsis
 -- description:
 homepage:            https://github.com/hyraxbio/awssy#readme
@@ -18,11 +18,12 @@ executable awssy
   main-is:             Main.hs
   ghc-options:        -threaded -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wcompat -Wredundant-constraints -Wnoncanonical-monad-instances -Widentities -fhide-source-paths -Wmissing-export-lists -Wpartial-fields -Werror=incomplete-patterns
   other-modules:       Args
+                     , Settings
                      , Paths_awssy
   build-depends:       base
                      , brickBedrock >= 0.1.7.5 && < 0.2.0.0
                      , protolude
-                     , aeson
+                     , aeson >= 2.0.0.0
                      , aeson-pretty
                      , brick
                      , bytestring
