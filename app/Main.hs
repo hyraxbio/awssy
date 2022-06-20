@@ -440,7 +440,7 @@ startSsh st =
                     void $ Pt.runProcess. Pt.shell $ "echo -e \"\\e]0;AWSSY\\007\""
                     pure stx
                   )
-                  (rejectSshIngress stx)
+                  (void . forkIO $ rejectSshIngress stx)
              )
       pure st
 
@@ -496,7 +496,7 @@ startShell st =
                      void $ Pt.runProcess. Pt.shell $ "echo -e \"\\e]0;AWSSY\\007\""
                      pure stx
                   )
-                  (rejectSshIngress stx)
+                  (void . forkIO $ rejectSshIngress stx)
              )
       pure st
 
